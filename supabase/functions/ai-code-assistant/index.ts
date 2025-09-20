@@ -1,7 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -47,31 +47,32 @@ Provide clear, actionable insights and suggest appropriate visualizations.`;
 Context: Working with ${fileType} files in an IDE environment.`;
     }
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `${prompt}\n\nContext: ${JSON.stringify(context)}` }
-        ],
-        max_tokens: 2000,
-        temperature: 0.7,
+        contents: [{
+          parts: [{
+            text: `${systemPrompt}\n\nUser Request: ${prompt}\n\nContext: ${JSON.stringify(context)}`
+          }]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 2000,
+        }
       }),
     });
 
     const data = await response.json();
     
     if (!response.ok) {
-      console.error('OpenAI API error:', data);
+      console.error('Gemini API error:', data);
       throw new Error(data.error?.message || 'AI request failed');
     }
 
-    const generatedContent = data.choices[0].message.content;
+    const generatedContent = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated';
 
     return new Response(JSON.stringify({ 
       content: generatedContent,
