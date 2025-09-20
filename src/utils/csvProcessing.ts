@@ -8,43 +8,9 @@ interface DatasetStats {
   cleaningOperations: string[];
 }
 
-const generateDataFrameHead = (lines: string[], headers: string[]): string => {
-  const headRows = lines.slice(1, 6); // First 5 data rows (df.head() equivalent)
-  const maxColWidth = 15;
-  
-  // Format headers
-  const formattedHeaders = headers.map(h => h.length > maxColWidth ? h.substring(0, maxColWidth-3) + '...' : h.padEnd(maxColWidth));
-  
-  // Format data rows
-  const formattedRows = headRows.map((row, index) => {
-    const cells = row.split(',').map(cell => {
-      let cleaned = cell.trim().replace(/"/g, '');
-      if (cleaned.length > maxColWidth) {
-        cleaned = cleaned.substring(0, maxColWidth-3) + '...';
-      }
-      return cleaned.padEnd(maxColWidth);
-    });
-    return `${index.toString().padStart(3)}  ${cells.join(' ')}`;
-  });
-  
-  const headerRow = `     ${formattedHeaders.join(' ')}`;
-  const separatorRow = `     ${formattedHeaders.map(() => '-'.repeat(maxColWidth)).join(' ')}`;
-  
-  return [
-    '# DataFrame.head() - First 5 rows preview:',
-    '',
-    headerRow,
-    separatorRow,
-    ...formattedRows,
-    '',
-    `# Shape: (${headRows.length}+, ${headers.length})`,
-    ''
-  ].join('\n');
-};
-
 export const cleanDataset = (csvContent: string): { cleanedContent: string; stats: DatasetStats } => {
   const lines = csvContent.split('\n');
-  const headers = lines[0]?.split(',').map(h => h.trim().replace(/"/g, '')) || [];
+  const headers = lines[0]?.split(',') || [];
   
   const cleaningOperations: string[] = [];
   
@@ -92,10 +58,7 @@ export const cleanDataset = (csvContent: string): { cleanedContent: string; stat
     cleaningOperations
   };
   
-  // Generate df.head() preview
-  const dfHead = generateDataFrameHead(cleanedLines, headers);
-  
-  // Create cleaned content with summary and preview
+  // Create cleaned content with summary
   const cleaningSummary = `# Dataset Cleaning Summary
 # Original rows: ${stats.originalRows}
 # Cleaned rows: ${stats.cleanedRows}
@@ -103,7 +66,6 @@ export const cleanDataset = (csvContent: string): { cleanedContent: string; stat
 # Operations: ${stats.cleaningOperations.join(', ')}
 # Ready for analysis - Ask the AI assistant about this data!
 
-${dfHead}
 `;
   
   return {

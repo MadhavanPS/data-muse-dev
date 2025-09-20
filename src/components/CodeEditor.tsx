@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Play, Save, Undo, Redo, Copy, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { CsvTableView } from '@/components/CsvTableView';
 
 interface CodeEditorProps {
   activeFile?: string;
@@ -157,23 +156,17 @@ def analyze_data(df):
 
         {/* Code Area */}
         <div className="flex-1 relative">
-          {language === 'csv' && content && !content.includes('# CSV Dataset') ? (
-            <div className="h-full p-4 overflow-auto">
-              <CsvTableView content={content} />
-            </div>
-          ) : (
-            <Textarea
-              value={content || getSampleContent()}
-              onChange={(e) => onChange(e.target.value)}
-              className="editor-area w-full h-full border-0 rounded-none resize-none focus:ring-0 text-sm leading-6 p-4"
-              style={{ 
-                fontFamily: 'var(--font-mono)',
-                fontSize: '14px',
-                lineHeight: '24px'
-              }}
-              placeholder={`Start writing ${getLanguageLabel()} code...`}
-            />
-          )}
+          <Textarea
+            value={content || getSampleContent()}
+            onChange={(e) => onChange(e.target.value)}
+            className="editor-area w-full h-full border-0 rounded-none resize-none focus:ring-0 text-sm leading-6 p-4"
+            style={{ 
+              fontFamily: 'var(--font-mono)',
+              fontSize: '14px',
+              lineHeight: '24px'
+            }}
+            placeholder={`Start writing ${getLanguageLabel()} code...`}
+          />
         </div>
       </div>
 
