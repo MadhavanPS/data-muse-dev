@@ -104,6 +104,16 @@ When CSV context is provided, prefer it to answer data questions accurately.`;
       ? `CSV CONTEXT\n- File: ${csvFilename || 'uploaded.csv'}\n- Columns (${headerColumns.length}): ${headerColumns.join(', ')}\n- Preview (first lines):\n${csvPreview}\n\nInstructions: Use this CSV context to answer the user's data questions. If the question is about columns, repeat the exact names above.`
       : '';
 
+    // Limit context size to prevent token overflow
+    const limitedContext = context ? {
+      activeFile: context.activeFile,
+      selectedText: context.selectedText || selectedText,
+      fileType: context.fileType || fileType,
+      csvData: context.csvData
+    } : {};
+
+    const contextString = JSON.stringify(limitedContext).slice(0, 10000); // Limit to 10k chars
+
     const geminiResponse = await fetch(
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
       {
@@ -117,9 +127,7 @@ When CSV context is provided, prefer it to answer data questions accurately.`;
             {
               parts: [
                 {
-                  text: `${systemPrompt}\n\n${csvContextSection}\n\nUser Request: ${prompt}\n\nIDE Context (may include active file, code selection, and files): ${JSON.stringify(
-                    context
-                  )}`,
+                  text: `${systemPrompt}\n\n${csvContextSection}\n\nUser Request: ${prompt}\n\nIDE Context: ${contextString}`,
                 },
               ],
             },
