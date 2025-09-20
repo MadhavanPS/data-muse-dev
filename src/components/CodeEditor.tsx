@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Play, Save, Undo, Redo, Copy, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { CsvTableView } from './CsvTableView';
+import { CsvTableView } from '@/components/CsvTableView';
 
 interface CodeEditorProps {
   activeFile?: string;
@@ -157,8 +157,10 @@ def analyze_data(df):
 
         {/* Code Area */}
         <div className="flex-1 relative">
-          {language === 'csv' ? (
-            <CsvTableView content={content || getSampleContent()} fileName={activeFile} />
+          {language === 'csv' && content && !content.includes('# CSV Dataset') ? (
+            <div className="h-full p-4 overflow-auto">
+              <CsvTableView content={content} />
+            </div>
           ) : (
             <Textarea
               value={content || getSampleContent()}
