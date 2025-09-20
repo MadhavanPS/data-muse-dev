@@ -45,7 +45,7 @@ interface DataVisualizationProps {
   fileName?: string;
 }
 
-const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#00ff00', '#ff00ff'];
+const COLORS = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'];
 
 export const DataVisualization = ({ csvData, fileName }: DataVisualizationProps) => {
   const { toast } = useToast();
@@ -122,58 +122,114 @@ export const DataVisualization = ({ csvData, fileName }: DataVisualizationProps)
     switch (chartType) {
       case 'bar':
         return (
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey={config?.xKey || 'name'} />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey={config?.yKey || 'value'} fill="#8884d8" />
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="bg-white p-4 border border-gray-300">
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="1 1" stroke="#cccccc" />
+                <XAxis 
+                  dataKey={config?.xKey || 'name'} 
+                  tick={{ fill: '#000000', fontSize: 12 }}
+                  axisLine={{ stroke: '#000000' }}
+                  tickLine={{ stroke: '#000000' }}
+                />
+                <YAxis 
+                  tick={{ fill: '#000000', fontSize: 12 }}
+                  axisLine={{ stroke: '#000000' }}
+                  tickLine={{ stroke: '#000000' }}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#ffffff', 
+                    border: '1px solid #cccccc',
+                    borderRadius: '0px',
+                    fontSize: '12px',
+                    color: '#000000'
+                  }}
+                />
+                <Legend 
+                  wrapperStyle={{ fontSize: '12px', color: '#000000' }}
+                />
+                <Bar dataKey={config?.yKey || 'value'} fill="#1f77b4" stroke="#000000" strokeWidth={0.5} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         );
         
       case 'line':
         return (
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey={config?.xKey || 'name'} />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line 
-                type="monotone" 
-                dataKey={config?.yKey || 'value'} 
-                stroke="#8884d8" 
-                strokeWidth={2}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          <div className="bg-white p-4 border border-gray-300">
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="1 1" stroke="#cccccc" />
+                <XAxis 
+                  dataKey={config?.xKey || 'name'} 
+                  tick={{ fill: '#000000', fontSize: 12 }}
+                  axisLine={{ stroke: '#000000' }}
+                  tickLine={{ stroke: '#000000' }}
+                />
+                <YAxis 
+                  tick={{ fill: '#000000', fontSize: 12 }}
+                  axisLine={{ stroke: '#000000' }}
+                  tickLine={{ stroke: '#000000' }}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#ffffff', 
+                    border: '1px solid #cccccc',
+                    borderRadius: '0px',
+                    fontSize: '12px',
+                    color: '#000000'
+                  }}
+                />
+                <Legend 
+                  wrapperStyle={{ fontSize: '12px', color: '#000000' }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey={config?.yKey || 'value'} 
+                  stroke="#1f77b4" 
+                  strokeWidth={2}
+                  dot={{ fill: '#1f77b4', strokeWidth: 1, stroke: '#000000', r: 3 }}
+                  activeDot={{ r: 5, fill: '#1f77b4', stroke: '#000000' }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         );
         
       case 'pie':
         return (
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={data}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey={config?.yKey || 'value'}
-              >
-                {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
+          <div className="bg-white p-4 border border-gray-300">
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                <Pie
+                  data={data}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}
+                  outerRadius={80}
+                  fill="#1f77b4"
+                  dataKey={config?.yKey || 'value'}
+                  stroke="#000000"
+                  strokeWidth={0.5}
+                >
+                  {data.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="#000000" strokeWidth={0.5} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#ffffff', 
+                    border: '1px solid #cccccc',
+                    borderRadius: '0px',
+                    fontSize: '12px',
+                    color: '#000000'
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
         );
         
       default:
@@ -193,7 +249,7 @@ export const DataVisualization = ({ csvData, fileName }: DataVisualizationProps)
               variant={selectedChartType === chart.id ? "default" : "outline"}
               size="sm"
               onClick={() => setSelectedChartType(chart.id)}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 bg-white border border-gray-400 text-black hover:bg-gray-100 rounded-none transition-none"
             >
               <Icon className="w-4 h-4" />
               {chart.label}
@@ -213,7 +269,7 @@ export const DataVisualization = ({ csvData, fileName }: DataVisualizationProps)
         <Button 
           onClick={generateVisualization}
           disabled={isGenerating || !csvData || !prompt.trim()}
-          className="w-full"
+          className="w-full bg-white border border-gray-400 text-black hover:bg-gray-100 rounded-none transition-none"
         >
           {isGenerating ? (
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -225,32 +281,32 @@ export const DataVisualization = ({ csvData, fileName }: DataVisualizationProps)
       </div>
       
       {/* Chart Display */}
-      <Card className="flex-1 min-h-0">
-        <CardHeader className="pb-2">
+      <Card className="flex-1 min-h-0 bg-white border border-gray-400 rounded-none shadow-none">
+        <CardHeader className="pb-2 border-b border-gray-300">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">
+            <CardTitle className="text-lg text-black font-medium">
               {chartData?.config?.title || 'Data Visualization'}
             </CardTitle>
             {fileName && (
-              <span className="text-sm text-muted-foreground">
+              <span className="text-sm text-gray-600">
                 Data: {fileName}
               </span>
             )}
           </div>
         </CardHeader>
-        <CardContent className="flex-1 min-h-0">
+        <CardContent className="flex-1 min-h-0 bg-gray-50">
           {renderChart()}
         </CardContent>
       </Card>
       
       {/* Insights */}
       {chartData?.insights && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Insights</CardTitle>
+        <Card className="bg-white border border-gray-400 rounded-none shadow-none">
+          <CardHeader className="pb-2 border-b border-gray-300">
+            <CardTitle className="text-base text-black font-medium">Insights</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">{chartData.insights}</p>
+          <CardContent className="bg-gray-50">
+            <p className="text-sm text-gray-700">{chartData.insights}</p>
           </CardContent>
         </Card>
       )}
