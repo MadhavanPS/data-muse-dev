@@ -33,17 +33,29 @@ serve(async (req) => {
     const csvContent = csvData?.content || '';
     const csvPreview = csvData?.preview || (csvContent ? csvContent.split(/\r?\n/).slice(0, 10).join('\n') : '');
 
-    // Simple CSV header parser with basic quote handling
+    // Enhanced CSV header parser that skips comment lines and handles quotes
     function parseCsvHeader(csv: string): string[] {
-      const firstLine = (csv.split(/\r?\n/)[0] || '').trim();
-      if (!firstLine) return [];
+      const lines = csv.split(/\r?\n/);
+      let headerLine = '';
+      
+      // Find the first non-comment, non-empty line as the header
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (trimmedLine && !trimmedLine.startsWith('#') && !trimmedLine.startsWith('//')) {
+          headerLine = trimmedLine;
+          break;
+        }
+      }
+      
+      if (!headerLine) return [];
+      
       const cols: string[] = [];
       let cur = '';
       let inQuotes = false;
-      for (let i = 0; i < firstLine.length; i++) {
-        const ch = firstLine[i];
+      for (let i = 0; i < headerLine.length; i++) {
+        const ch = headerLine[i];
         if (ch === '"') {
-          if (inQuotes && firstLine[i + 1] === '"') {
+          if (inQuotes && headerLine[i + 1] === '"') {
             cur += '"';
             i++;
           } else {
