@@ -6,6 +6,7 @@ import { RightPanel } from '@/components/RightPanel';
 import { CodeEditor } from '@/components/CodeEditor';
 import { EditorProvider } from '@/contexts/EditorContext';
 import { useToast } from '@/hooks/use-toast';
+import { FileSystemItem } from '@/types/FileSystem';
 
 const IDE = () => {
   const { toast } = useToast();
@@ -23,6 +24,19 @@ const IDE = () => {
   const [fileContents, setFileContents] = useState<Record<string, string>>({
     '1': ''
   });
+
+  // File system structure for explorer
+  const [fileSystemItems, setFileSystemItems] = useState<FileSystemItem[]>([
+    {
+      id: '1',
+      name: 'Project Files',
+      type: 'folder',
+      isExpanded: true,
+      children: [
+        { id: 'welcome-sql', name: 'welcome.sql', type: 'file', fileType: 'sql' }
+      ]
+    }
+  ]);
 
   const activeTab = tabs.find(tab => tab.isActive);
   
@@ -62,9 +76,9 @@ const IDE = () => {
     setFileContents(newContents);
   };
 
-  const handleNewFile = (type: 'sql' | 'python') => {
+  const handleNewFile = (type: 'sql' | 'python' | 'csv' | 'json') => {
     const newId = Date.now().toString();
-    const extension = type === 'sql' ? 'sql' : 'py';
+    const extension = type === 'sql' ? 'sql' : type === 'python' ? 'py' : type === 'json' ? 'json' : 'csv';
     const newTab: FileTab = {
       id: newId,
       name: `untitled.${extension}`,
@@ -82,6 +96,21 @@ const IDE = () => {
       ...prev,
       [newId]: ''
     }));
+
+    // Add to file system
+    setFileSystemItems(prev => {
+      const updatedItems = [...prev];
+      const projectFolder = updatedItems.find(item => item.name === 'Project Files');
+      if (projectFolder && projectFolder.children) {
+        projectFolder.children.push({
+          id: newId,
+          name: `untitled.${extension}`,
+          type: 'file',
+          fileType: type
+        });
+      }
+      return updatedItems;
+    });
   };
 
   const handleContentChange = (content: string) => {
@@ -156,11 +185,81 @@ const IDE = () => {
       [originalId]: originalContent,
       [cleanedId]: cleanedContent
     }));
+
+    // Add to file system
+    setFileSystemItems(prev => {
+      const updatedItems = [...prev];
+      const projectFolder = updatedItems.find(item => item.name === 'Project Files');
+      if (projectFolder && projectFolder.children) {
+        projectFolder.children.push(
+          { id: originalId, name: originalFile, type: 'file', fileType: 'csv' },
+          { id: cleanedId, name: cleanedFile, type: 'file', fileType: 'csv' }
+        );
+      }
+      return updatedItems;
+    });
     
     toast({
       title: "Dataset Processed",
       description: `${cleanedFile} created and opened. Original file also available in tabs.`
     });
+  };
+
+  const handleCodeUpdate = (newContent: string) => {
+    if (!activeTab) return;
+    
+    setFileContents(prev => ({
+      ...prev,
+      [activeTab.id]: newContent
+    }));
+    
+    setTabs(prev => prev.map(tab => 
+      tab.id === activeTab.id 
+        ? { ...tab, isDirty: true }
+        : tab
+    ));
+  };
+
+  const handleFileSelect = (file: FileSystemItem) => {
+    // Find existing tab or create new one
+    const existingTab = tabs.find(tab => tab.name === file.name);
+    if (existingTab) {
+      handleTabClick(existingTab.id);
+    } else if (file.type === 'file') {
+      // Create new tab for this file
+      const newTab: FileTab = {
+        id: file.id,
+        name: file.name,
+        type: file.fileType || 'sql',
+        isActive: true,
+        isDirty: false
+      };
+      
+      setTabs(prev => [
+        ...prev.map(tab => ({ ...tab, isActive: false })),
+        newTab
+      ]);
+      
+      // Load file content (placeholder for now)
+      setFileContents(prev => ({
+        ...prev,
+        [file.id]: fileContents[file.id] || ''
+      }));
+    }
+  };
+
+  const handleNewFolder = () => {
+    const folderId = Date.now().toString();
+    setFileSystemItems(prev => [
+      ...prev,
+      {
+        id: folderId,
+        name: 'New Folder',
+        type: 'folder',
+        isExpanded: false,
+        children: []
+      }
+    ]);
   };
 
   return (
@@ -179,7 +278,11 @@ const IDE = () => {
           {/* Left Sidebar */}
           <LeftSidebar 
             activePanel={activePanel} 
-            onPanelChange={setActivePanel} 
+            onPanelChange={setActivePanel}
+            files={fileSystemItems}
+            onFileSelect={handleFileSelect}
+            onNewFile={handleNewFile}
+            onNewFolder={handleNewFolder}
           />
 
           {/* Visualization Panel */}
@@ -205,7 +308,10 @@ const IDE = () => {
           </div>
 
           {/* Right Panel */}
-          <RightPanel onFileUpload={handleFileUpload} />
+          <RightPanel 
+            onFileUpload={handleFileUpload}
+            onCodeUpdate={handleCodeUpdate}
+          />
         </div>
 
         {/* Fullscreen Visualization Overlay */}

@@ -7,13 +7,18 @@ import {
   XCircle, 
   Bot,
   User,
-  Loader2
+  Loader2,
+  Code,
+  Sparkles
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useEditor } from '@/contexts/EditorContext';
+import { CodeApprovalDialog } from '@/components/CodeApprovalDialog';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface Message {
   id: string;
@@ -24,11 +29,13 @@ interface Message {
 
 interface RightPanelProps {
   onFileUpload: (originalFile: string, originalContent: string, cleanedFile: string, cleanedContent: string) => void;
+  onCodeUpdate: (newContent: string) => void;
 }
 
 import { cleanDataset } from '@/utils/csvProcessing';
 
-export const RightPanel = ({ onFileUpload }: RightPanelProps) => {
+export const RightPanel = ({ onFileUpload, onCodeUpdate }: RightPanelProps) => {
+  const { toast } = useToast();
   const { activeTab, getActiveContent, getAllFilesContent, selectedText } = useEditor();
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([
@@ -42,6 +49,19 @@ export const RightPanel = ({ onFileUpload }: RightPanelProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<string | null>(null);
   const [originalCsvContent, setOriginalCsvContent] = useState<string | null>(null);
+  
+  // Code approval dialog state
+  const [approvalDialog, setApprovalDialog] = useState<{
+    isOpen: boolean;
+    generatedCode: string;
+    requestType: string;
+    originalCode?: string;
+  }>({
+    isOpen: false,
+    generatedCode: '',
+    requestType: '',
+    originalCode: ''
+  });
 
   // CSV Processing Function
   const processCsvCleaning = (csvContent: string): string => {
@@ -49,7 +69,7 @@ export const RightPanel = ({ onFileUpload }: RightPanelProps) => {
     return cleanedContent;
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!message.trim()) return;
     
     // Get current context for AI
@@ -71,40 +91,74 @@ export const RightPanel = ({ onFileUpload }: RightPanelProps) => {
     };
     
     setMessages(prev => [...prev, newMessage]);
+    const currentMessage = message;
     setMessage('');
     setIsLoading(true);
     
-    // TODO: Send context to AI model with CSV data awareness
-    console.log('Context for AI:', context);
-    
-    // Enhanced AI response with CSV query capability
-    setTimeout(() => {
-      let aiResponse = '';
-      
-      // Check if user is asking about data analysis and we have CSV files
-      const csvFiles = allFiles.filter(f => f.type === 'csv');
-      const isDataQuery = message.toLowerCase().includes('top') || 
-                         message.toLowerCase().includes('perform') ||
-                         message.toLowerCase().includes('analyze') ||
-                         message.toLowerCase().includes('show') ||
-                         message.toLowerCase().includes('find');
-      
-      if (isDataQuery && csvFiles.length > 0) {
-        const latestCsv = csvFiles[csvFiles.length - 1]; // Get most recent CSV
-        aiResponse = `I can see you're working with data in "${latestCsv.fileName}". Based on your query "${message}", I would analyze the CSV data to find the information you're looking for. Once the ML models are integrated, I'll be able to process the actual data and provide specific insights.`;
-      } else {
-        aiResponse = `I can see you're working on "${activeTab?.name || 'a file'}" with ${activeTab?.type?.toUpperCase() || 'code'}. Once the AI models are integrated, I'll analyze your current code context and provide targeted assistance.`;
+    try {
+      // Determine request type based on message content and context
+      let requestType = 'general';
+      if (currentMessage.toLowerCase().includes('generate') || currentMessage.toLowerCase().includes('create') || currentMessage.toLowerCase().includes('write')) {
+        requestType = 'code_generation';
+      } else if (currentMessage.toLowerCase().includes('refactor') || currentMessage.toLowerCase().includes('improve') || currentMessage.toLowerCase().includes('optimize')) {
+        requestType = 'code_refactor';
+      } else if (currentMessage.toLowerCase().includes('analyze') || currentMessage.toLowerCase().includes('data') || currentMessage.toLowerCase().includes('chart')) {
+        requestType = 'data_analysis';
       }
       
-      const aiResponseMsg: Message = {
+      // Call AI assistant
+      const { data, error } = await supabase.functions.invoke('ai-code-assistant', {
+        body: {
+          prompt: currentMessage,
+          context,
+          selectedText,
+          fileType: activeTab?.type || '',
+          requestType
+        }
+      });
+      
+      if (error) throw error;
+      
+      if (data.success) {
+        // If it's code generation/refactoring, show approval dialog
+        if (requestType === 'code_generation' || requestType === 'code_refactor') {
+          setApprovalDialog({
+            isOpen: true,
+            generatedCode: data.content,
+            requestType: data.requestType,
+            originalCode: requestType === 'code_refactor' ? selectedText || currentContent : undefined
+          });
+        } else {
+          // For other requests, just show the response
+          const aiResponseMsg: Message = {
+            id: (Date.now() + 1).toString(),
+            type: 'ai',
+            content: data.content,
+            timestamp: new Date()
+          };
+          setMessages(prev => [...prev, aiResponseMsg]);
+        }
+      } else {
+        throw new Error(data.error || 'AI request failed');
+      }
+    } catch (error) {
+      console.error('AI request error:', error);
+      const errorMsg: Message = {
         id: (Date.now() + 1).toString(),
         type: 'ai',
-        content: aiResponse,
+        content: `Sorry, I encountered an error: ${error.message}. Please try again.`,
         timestamp: new Date()
       };
-      setMessages(prev => [...prev, aiResponseMsg]);
+      setMessages(prev => [...prev, errorMsg]);
+      
+      toast({
+        title: "AI Request Failed",
+        description: error.message || "Please try again",
+        variant: "destructive"
+      });
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -140,6 +194,44 @@ export const RightPanel = ({ onFileUpload }: RightPanelProps) => {
   const handleRejectFile = () => {
     setUploadedFile(null);
     setOriginalCsvContent(null);
+  };
+  
+  // Code approval handlers
+  const handleApproveCode = () => {
+    if (approvalDialog.generatedCode) {
+      onCodeUpdate(approvalDialog.generatedCode);
+      
+      const successMsg: Message = {
+        id: Date.now().toString(),
+        type: 'ai',
+        content: 'Code has been applied successfully!',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, successMsg]);
+      
+      toast({
+        title: "Code Applied",
+        description: "The generated code has been inserted into your editor"
+      });
+    }
+    
+    setApprovalDialog({ isOpen: false, generatedCode: '', requestType: '', originalCode: '' });
+  };
+  
+  const handleRejectCode = () => {
+    const rejectMsg: Message = {
+      id: Date.now().toString(),
+      type: 'ai',
+      content: 'Code suggestion rejected. Feel free to ask for modifications or try a different approach.',
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, rejectMsg]);
+    
+    setApprovalDialog({ isOpen: false, generatedCode: '', requestType: '', originalCode: '' });
+  };
+  
+  const closeApprovalDialog = () => {
+    setApprovalDialog({ isOpen: false, generatedCode: '', requestType: '', originalCode: '' });
   };
 
   return (
@@ -244,7 +336,10 @@ export const RightPanel = ({ onFileUpload }: RightPanelProps) => {
           {/* Message Input */}
           <div className="space-y-2">
             <Textarea
-              placeholder="Ask me to generate code, clean data, or create visualizations..."
+              placeholder={selectedText 
+                ? "I can see you've selected some code. Ask me to refactor it, generate similar code, or explain it..."
+                : "Ask me to generate code, clean data, or create visualizations..."
+              }
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={(e) => {
@@ -255,6 +350,12 @@ export const RightPanel = ({ onFileUpload }: RightPanelProps) => {
               }}
               className="min-h-[80px] bg-input border-border text-sm resize-none"
             />
+            {selectedText && (
+              <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                <Code className="w-3 h-3 inline mr-1" />
+                Selected: {selectedText.substring(0, 50)}{selectedText.length > 50 ? '...' : ''}
+              </div>
+            )}
             <div className="flex gap-2">
               <Button variant="outline" size="sm" className="flex-shrink-0">
                 <Paperclip className="w-4 h-4" />
@@ -265,13 +366,28 @@ export const RightPanel = ({ onFileUpload }: RightPanelProps) => {
                 className="flex-1"
                 size="sm"
               >
-                <Send className="w-4 h-4 mr-1" />
-                Send
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4 mr-1" />
+                )}
+                {isLoading ? 'Processing...' : 'Send'}
               </Button>
             </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Code Approval Dialog */}
+      <CodeApprovalDialog
+        isOpen={approvalDialog.isOpen}
+        onClose={closeApprovalDialog}
+        onApprove={handleApproveCode}
+        onReject={handleRejectCode}
+        generatedCode={approvalDialog.generatedCode}
+        requestType={approvalDialog.requestType}
+        originalCode={approvalDialog.originalCode}
+      />
     </div>
   );
 };

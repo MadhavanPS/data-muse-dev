@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 export interface FileTab {
   id: string;
   name: string;
-  type: 'sql' | 'python' | 'csv';
+  type: 'sql' | 'python' | 'csv' | 'json';
   isActive: boolean;
   isDirty: boolean;
 }
@@ -14,7 +14,7 @@ interface FileTabsProps {
   tabs: FileTab[];
   onTabClick: (id: string) => void;
   onTabClose: (id: string) => void;
-  onNewFile: (type: 'sql' | 'python') => void;
+  onNewFile: (type: 'sql' | 'python' | 'csv' | 'json') => void;
 }
 
 export const FileTabs = ({ tabs, onTabClick, onTabClose, onNewFile }: FileTabsProps) => {

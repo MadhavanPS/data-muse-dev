@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DataVisualization } from '@/components/DataVisualization';
+import { useEditor } from '@/contexts/EditorContext';
 
 interface VisualizationPanelProps {
   isFullscreen?: boolean;
@@ -17,6 +19,7 @@ interface VisualizationPanelProps {
 }
 
 export const VisualizationPanel = ({ isFullscreen = false, onToggleFullscreen }: VisualizationPanelProps) => {
+  const { activeTab, fileContents, getAllFilesContent } = useEditor();
   const [activeChart, setActiveChart] = useState('bar');
 
   const chartTypes = [
@@ -25,17 +28,19 @@ export const VisualizationPanel = ({ isFullscreen = false, onToggleFullscreen }:
     { id: 'pie', icon: PieChart, label: 'Pie Chart' },
   ];
 
-  const MockChart = () => (
-    <div className="w-full h-full bg-viz-background rounded-lg border border-viz-border flex items-center justify-center">
-      <div className="text-center text-muted-foreground">
-        <BarChart3 className="w-16 h-16 mx-auto mb-4 opacity-50" />
-        <p className="text-lg font-medium mb-2">No Visualization Active</p>
-        <p className="text-sm">
-          Use the AI assistant to generate charts from your data
-        </p>
-      </div>
-    </div>
-  );
+  // Get the most recent CSV file data
+  const getCsvData = () => {
+    const allFiles = getAllFilesContent();
+    const csvFiles = allFiles.filter(f => f.type === 'csv');
+    
+    if (csvFiles.length === 0) return null;
+    
+    // Return the most recently active CSV or the last one
+    const activeCsv = csvFiles.find(f => activeTab?.type === 'csv' && f.fileName === activeTab.name);
+    return activeCsv || csvFiles[csvFiles.length - 1];
+  };
+
+  const currentCsvData = getCsvData();
 
   return (
     <Card className={`bg-viz-background border-viz-border ${
@@ -96,7 +101,10 @@ export const VisualizationPanel = ({ isFullscreen = false, onToggleFullscreen }:
       </CardHeader>
       
       <CardContent className="p-4 h-full">
-        <MockChart />
+        <DataVisualization 
+          csvData={currentCsvData?.content}
+          fileName={currentCsvData?.fileName}
+        />
       </CardContent>
     </Card>
   );
