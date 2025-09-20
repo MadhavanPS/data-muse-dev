@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState } from 'react';
 import { 
   BarChart3, 
   LineChart, 
@@ -22,14 +22,14 @@ export const VisualizationPanel = ({ isFullscreen = false, onToggleFullscreen }:
   const { activeTab, fileContents, getAllFilesContent } = useEditor();
   const [activeChart, setActiveChart] = useState('bar');
 
-  const chartTypes = useMemo(() => [
+  const chartTypes = [
     { id: 'bar', icon: BarChart3, label: 'Bar Chart' },
     { id: 'line', icon: LineChart, label: 'Line Chart' },
     { id: 'pie', icon: PieChart, label: 'Pie Chart' },
-  ], []);
+  ];
 
-  // Get the most recent CSV file data (memoized to prevent infinite re-renders)
-  const currentCsvData = useMemo(() => {
+  // Get the most recent CSV file data
+  const getCsvData = () => {
     const allFiles = getAllFilesContent();
     const csvFiles = allFiles.filter(f => f.type === 'csv');
     
@@ -38,7 +38,9 @@ export const VisualizationPanel = ({ isFullscreen = false, onToggleFullscreen }:
     // Return the most recently active CSV or the last one
     const activeCsv = csvFiles.find(f => activeTab?.type === 'csv' && f.fileName === activeTab.name);
     return activeCsv || csvFiles[csvFiles.length - 1];
-  }, [getAllFilesContent, activeTab]);
+  };
+
+  const currentCsvData = getCsvData();
 
   return (
     <Card className={`bg-viz-background border-viz-border ${

@@ -60,12 +60,6 @@
     --input: 220 13% 12%;
     --ring: 221 83% 53%;
     
-    /* Popover & Dropdown Elements */
-    --popover: 220 13% 12%;
-    --popover-foreground: 220 14% 95%;
-    --card: 220 13% 12%;
-    --card-foreground: 220 14% 95%;
-    
     /* Visualization Area */
     --viz-background: 220 13% 11%;
     --viz-border: 220 13% 20%;
@@ -143,17 +137,5 @@
   
   .chat-message.ai {
     @apply bg-chat-message-ai mr-8;
-  }
-  
-  /* Ensure dropdowns and popovers have proper backgrounds and z-index */
-  .dropdown-menu-content,
-  [data-radix-popper-content-wrapper] {
-    @apply z-[9999] !important;
-  }
-  
-  [data-radix-dropdown-menu-content],
-  [data-radix-popover-content],
-  [data-radix-tooltip-content] {
-    @apply bg-popover text-popover-foreground border border-border shadow-lg z-[9999] !important;
   }
 }

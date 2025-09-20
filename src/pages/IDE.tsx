@@ -285,38 +285,33 @@ const IDE = () => {
             onNewFolder={handleNewFolder}
           />
 
-          {/* Central Content Area */}
-          <div className="flex-1 flex min-w-0">
-            {/* Visualization Panel */}
-            <div className="w-80 border-r border-panel-border bg-panel-background flex-shrink-0">
-              <VisualizationPanel 
-                isFullscreen={isVizFullscreen}
-                onToggleFullscreen={() => setIsVizFullscreen(!isVizFullscreen)}
-              />
-            </div>
+          {/* Visualization Panel */}
+          <div className="w-80 border-r border-panel-border bg-panel-background">
+            <VisualizationPanel 
+              isFullscreen={isVizFullscreen}
+              onToggleFullscreen={() => setIsVizFullscreen(!isVizFullscreen)}
+            />
+          </div>
 
-            {/* Main Editor Area */}
-            <div className="flex-1 flex flex-col min-w-0 bg-editor-background">
-              {activeTab && (
-                <CodeEditor
-                  activeFile={activeTab.name}
-                  language={activeTab.type}
-                  content={fileContents[activeTab.id] || ''}
-                  onChange={handleContentChange}
-                  onSave={handleSave}
-                  onRun={handleRun}
-                />
-              )}
-            </div>
+          {/* Main Editor Area */}
+          <div className="flex-1 flex flex-col min-w-0 bg-editor-background">
+            {activeTab && (
+              <CodeEditor
+                activeFile={activeTab.name}
+                language={activeTab.type}
+                content={fileContents[activeTab.id] || ''}
+                onChange={handleContentChange}
+                onSave={handleSave}
+                onRun={handleRun}
+              />
+            )}
           </div>
 
           {/* Right Panel */}
-          <div className="w-80 border-l border-panel-border bg-panel-background flex-shrink-0">
-            <RightPanel 
-              onFileUpload={handleFileUpload}
-              onCodeUpdate={handleCodeUpdate}
-            />
-          </div>
+          <RightPanel 
+            onFileUpload={handleFileUpload}
+            onCodeUpdate={handleCodeUpdate}
+          />
         </div>
 
         {/* Fullscreen Visualization Overlay */}
