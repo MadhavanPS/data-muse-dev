@@ -125,11 +125,11 @@ export const DataVisualization = ({ csvData, fileName }: DataVisualizationProps)
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={data}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey={config.xKey || 'name'} />
+              <XAxis dataKey={config?.xKey || 'name'} />
               <YAxis />
               <Tooltip />
               <Legend />
-              <Bar dataKey={config.yKey || 'value'} fill="#8884d8" />
+              <Bar dataKey={config?.yKey || 'value'} fill="#8884d8" />
             </BarChart>
           </ResponsiveContainer>
         );
@@ -139,13 +139,13 @@ export const DataVisualization = ({ csvData, fileName }: DataVisualizationProps)
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={data}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey={config.xKey || 'name'} />
+              <XAxis dataKey={config?.xKey || 'name'} />
               <YAxis />
               <Tooltip />
               <Legend />
               <Line 
                 type="monotone" 
-                dataKey={config.yKey || 'value'} 
+                dataKey={config?.yKey || 'value'} 
                 stroke="#8884d8" 
                 strokeWidth={2}
               />
@@ -165,7 +165,7 @@ export const DataVisualization = ({ csvData, fileName }: DataVisualizationProps)
                 label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                 outerRadius={80}
                 fill="#8884d8"
-                dataKey={config.yKey || 'value'}
+                dataKey={config?.yKey || 'value'}
               >
                 {data.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -229,7 +229,7 @@ export const DataVisualization = ({ csvData, fileName }: DataVisualizationProps)
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">
-              {chartData?.config.title || 'Data Visualization'}
+              {chartData?.config?.title || 'Data Visualization'}
             </CardTitle>
             {fileName && (
               <span className="text-sm text-muted-foreground">
