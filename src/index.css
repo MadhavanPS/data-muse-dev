@@ -4,7 +4,7 @@
 
 /* Professional IDE Design System - Technical, Developer-Focused Aesthetic */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@300;400;500;600;700&display=swap');
 
 @layer base {
   :root {
@@ -83,6 +83,8 @@
     --gradient-accent: linear-gradient(135deg, hsl(var(--accent)), hsl(var(--accent-hover)));
     
     /* Typography */
+    --font-sans: 'Inter', system-ui, sans-serif;
+    --font-mono: 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
   }
 }
 

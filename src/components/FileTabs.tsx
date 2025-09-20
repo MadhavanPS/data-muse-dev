@@ -37,7 +37,7 @@ export const FileTabs = ({ tabs, onTabClick, onTabClose, onNewFile }: FileTabsPr
               onClick={() => onTabClick(tab.id)}
             >
               <Icon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-              <span className="truncate text-sm">
+              <span className="truncate text-sm font-mono">
                 {tab.name}
                 {tab.isDirty && <span className="text-warning ml-1">•</span>}
               </span>
@@ -55,6 +55,17 @@ export const FileTabs = ({ tabs, onTabClick, onTabClose, onNewFile }: FileTabsPr
             </div>
           );
         })}
+        
+        {/* Add New Tab Button */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 px-2 ml-1 text-muted-foreground hover:text-foreground border-l border-panel-border"
+          onClick={() => onNewFile('sql')}
+          title="New File"
+        >
+          <Plus className="w-4 h-4" />
+        </Button>
       </div>
 
       {/* New File Buttons */}

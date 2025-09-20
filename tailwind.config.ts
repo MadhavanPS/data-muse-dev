@@ -82,8 +82,8 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['var(--font-sans)'],
-        mono: ['var(--font-mono)'],
+        sans: ['var(--font-sans)', 'Inter', 'system-ui', 'sans-serif'],
+        mono: ['var(--font-mono)', 'Fira Code', 'Consolas', 'Monaco', 'monospace'],
       },
       backgroundImage: {
         'gradient-primary': 'var(--gradient-primary)',

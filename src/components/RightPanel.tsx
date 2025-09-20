@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useEditor } from '@/contexts/EditorContext';
 
 interface Message {
   id: string;
@@ -26,12 +27,13 @@ interface RightPanelProps {
 }
 
 export const RightPanel = ({ onFileUpload }: RightPanelProps) => {
+  const { activeTab, getActiveContent, getAllFilesContent, selectedText } = useEditor();
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
       type: 'ai',
-      content: 'Hello! I\'m your AI coding assistant. I can help you generate SQL queries, Python code, clean datasets, and create visualizations. What would you like to work on?',
+      content: 'Hello! I\'m your AI coding assistant. I can analyze your current code and help you generate SQL queries, Python code, clean datasets, and create visualizations. What would you like to work on?',
       timestamp: new Date()
     }
   ]);
@@ -40,6 +42,17 @@ export const RightPanel = ({ onFileUpload }: RightPanelProps) => {
 
   const handleSendMessage = () => {
     if (!message.trim()) return;
+    
+    // Get current context for AI
+    const currentContent = getActiveContent();
+    const allFiles = getAllFilesContent();
+    const context = {
+      activeFile: activeTab?.name || '',
+      currentContent,
+      selectedText,
+      allFiles,
+      fileType: activeTab?.type || ''
+    };
     
     const newMessage: Message = {
       id: Date.now().toString(),
@@ -52,12 +65,15 @@ export const RightPanel = ({ onFileUpload }: RightPanelProps) => {
     setMessage('');
     setIsLoading(true);
     
-    // Simulate AI response
+    // TODO: Send context to AI model
+    console.log('Context for AI:', context);
+    
+    // Simulate AI response with context awareness
     setTimeout(() => {
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
         type: 'ai',
-        content: 'I understand you need help with that. Once the AI models are integrated, I\'ll be able to generate the code you need and help clean your datasets.',
+        content: `I can see you're working on "${activeTab?.name || 'a file'}" with ${activeTab?.type?.toUpperCase() || 'code'}. Once the AI models are integrated, I'll analyze your current code context and provide targeted assistance.`,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, aiResponse]);
