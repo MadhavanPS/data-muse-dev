@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useMemo, useCallback } from 'react';
 import { FileTab } from '@/components/FileTabs';
 
 interface EditorContextType {
@@ -25,22 +25,22 @@ export const EditorProvider = ({ children, tabs, fileContents }: EditorProviderP
   const [selectedText, setSelectedText] = useState('');
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
 
-  const activeTab = tabs.find(tab => tab.isActive);
+  const activeTab = useMemo(() => tabs.find(tab => tab.isActive), [tabs]);
 
-  const getActiveContent = () => {
+  const getActiveContent = useCallback(() => {
     if (!activeTab) return '';
     return fileContents[activeTab.id] || '';
-  };
+  }, [activeTab, fileContents]);
 
-  const getAllFilesContent = () => {
+  const getAllFilesContent = useCallback(() => {
     return tabs.map(tab => ({
       fileName: tab.name,
       content: fileContents[tab.id] || '',
       type: tab.type
     }));
-  };
+  }, [tabs, fileContents]);
 
-  const value: EditorContextType = {
+  const value: EditorContextType = useMemo(() => ({
     activeTab,
     tabs,
     fileContents,
@@ -50,7 +50,7 @@ export const EditorProvider = ({ children, tabs, fileContents }: EditorProviderP
     cursorPosition,
     setSelectedText,
     setCursorPosition
-  };
+  }), [activeTab, tabs, fileContents, getActiveContent, getAllFilesContent, selectedText, cursorPosition]);
 
   return (
     <EditorContext.Provider value={value}>
