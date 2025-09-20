@@ -75,12 +75,21 @@ export const RightPanel = ({ onFileUpload, onCodeUpdate }: RightPanelProps) => {
     // Get current context for AI
     const currentContent = getActiveContent();
     const allFiles = getAllFilesContent();
+    
+    // Include CSV data in context if available
+    const csvData = originalCsvContent ? {
+      filename: uploadedFile,
+      content: originalCsvContent,
+      preview: originalCsvContent.split('\n').slice(0, 10).join('\n') // First 10 lines
+    } : null;
+    
     const context = {
       activeFile: activeTab?.name || '',
       currentContent,
       selectedText,
       allFiles,
-      fileType: activeTab?.type || ''
+      fileType: activeTab?.type || '',
+      csvData: csvData
     };
     
     const newMessage: Message = {
