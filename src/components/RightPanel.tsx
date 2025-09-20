@@ -1,15 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Upload, 
   Send, 
   Paperclip, 
-  CheckCircle, 
-  XCircle, 
   Bot,
   User,
   Loader2,
   Code,
-  Sparkles
+  Sparkles,
+  FileText
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -42,13 +41,14 @@ export const RightPanel = ({ onFileUpload, onCodeUpdate }: RightPanelProps) => {
     {
       id: '1',
       type: 'ai',
-      content: 'Hello! I\'m your AI coding assistant. I can analyze your current code and help you generate SQL queries, Python code, clean datasets, and create visualizations. What would you like to work on?',
+      content: 'Hello! I\'m your AI coding assistant. Upload a dataset and I can help you analyze data, generate SQL queries, Python code, clean datasets, and create visualizations. What would you like to work on?',
       timestamp: new Date()
     }
   ]);
   const [isLoading, setIsLoading] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<string | null>(null);
   const [originalCsvContent, setOriginalCsvContent] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Code approval dialog state
   const [approvalDialog, setApprovalDialog] = useState<{
@@ -179,30 +179,36 @@ export const RightPanel = ({ onFileUpload, onCodeUpdate }: RightPanelProps) => {
       const reader = new FileReader();
       reader.onload = (event) => {
         const csvContent = event.target?.result as string;
-        // Store original CSV content for processing
+        // Store original CSV content and auto-process
         setOriginalCsvContent(csvContent);
+        
+        // Auto-process the CSV through cleaning function
+        const cleanedContent = processCsvCleaning(csvContent);
+        
+        // Create new tab with cleaned data
+        const cleanedFileName = file.name.replace('.csv', '_cleaned.csv');
+        onFileUpload(file.name, csvContent, cleanedFileName, cleanedContent);
+        
+        // Add a message to chat indicating file was uploaded
+        const fileUploadMsg: Message = {
+          id: Date.now().toString(),
+          type: 'ai',
+          content: `📁 Dataset "${file.name}" uploaded successfully! I can now help you analyze this data, create visualizations, or generate code for data processing. What would you like to do with your dataset?`,
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, fileUploadMsg]);
+        
+        toast({
+          title: "Dataset Uploaded",
+          description: `${file.name} is ready for analysis`,
+        });
       };
       reader.readAsText(file);
     }
   };
 
-  const handleApproveFile = () => {
-    if (!uploadedFile || !originalCsvContent) return;
-    
-    // Process the CSV through cleaning function
-    const cleanedContent = processCsvCleaning(originalCsvContent);
-    
-    // Create new tab with cleaned data
-    const cleanedFileName = uploadedFile.replace('.csv', '_cleaned.csv');
-    onFileUpload(uploadedFile, originalCsvContent, cleanedFileName, cleanedContent);
-    
-    setUploadedFile(null);
-    setOriginalCsvContent(null);
-  };
-
-  const handleRejectFile = () => {
-    setUploadedFile(null);
-    setOriginalCsvContent(null);
+  const handleFileUploadClick = () => {
+    fileInputRef.current?.click();
   };
   
   // Code approval handlers
@@ -245,66 +251,17 @@ export const RightPanel = ({ onFileUpload, onCodeUpdate }: RightPanelProps) => {
 
   return (
     <div className="w-80 bg-panel-background border-l border-panel-border flex flex-col h-full">
-      {/* File Upload Section */}
-      <Card className="m-3 mb-2">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Upload className="w-4 h-4" />
-            Dataset Upload
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="border-2 border-dashed border-muted rounded-lg p-4 text-center">
-            <input
-              type="file"
-              accept=".csv,.xlsx,.json"
-              onChange={handleFileInputChange}
-              className="hidden"
-              id="file-upload"
-            />
-            <label
-              htmlFor="file-upload"
-              className="cursor-pointer text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Upload className="w-6 h-6 mx-auto mb-2 opacity-50" />
-              Drop CSV files here or click to browse
-            </label>
-          </div>
-          
-          {uploadedFile && (
-            <div className="bg-muted rounded-lg p-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">{uploadedFile}</span>
-              </div>
-              <p className="text-xs text-muted-foreground mb-3">
-                File will be cleaned and processed by our ML model
-              </p>
-              <div className="flex gap-2">
-                <Button 
-                  size="sm" 
-                  className="flex-1" 
-                  onClick={handleApproveFile}
-                >
-                  <CheckCircle className="w-4 h-4 mr-1" />
-                  Approve
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className="flex-1"
-                  onClick={handleRejectFile}
-                >
-                  <XCircle className="w-4 h-4 mr-1" />
-                  Reject
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Hidden File Input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".csv,.xlsx,.json"
+        onChange={handleFileInputChange}
+        className="hidden"
+      />
 
       {/* AI Chat Section */}
-      <Card className="mx-3 mb-3 flex-1 flex flex-col min-h-0">
+      <Card className="m-3 flex-1 flex flex-col min-h-0">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
             <Bot className="w-4 h-4" />
@@ -365,9 +322,21 @@ export const RightPanel = ({ onFileUpload, onCodeUpdate }: RightPanelProps) => {
                 Selected: {selectedText.substring(0, 50)}{selectedText.length > 50 ? '...' : ''}
               </div>
             )}
+            {uploadedFile && (
+              <div className="text-xs text-success bg-success/10 p-2 rounded flex items-center gap-1">
+                <FileText className="w-3 h-3" />
+                Dataset: {uploadedFile}
+              </div>
+            )}
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="flex-shrink-0">
-                <Paperclip className="w-4 h-4" />
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="flex-shrink-0"
+                onClick={handleFileUploadClick}
+                title="Upload dataset"
+              >
+                <Upload className="w-4 h-4" />
               </Button>
               <Button 
                 onClick={handleSendMessage} 
