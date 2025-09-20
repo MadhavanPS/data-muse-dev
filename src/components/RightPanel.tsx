@@ -162,46 +162,17 @@ export const RightPanel = ({ onFileUpload, onCodeUpdate }: RightPanelProps) => {
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('File input change triggered', e.target.files);
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
-      console.log('File selected:', file.name, file.type, file.size);
-      
-      if (!file.name.toLowerCase().endsWith('.csv') && 
-          !file.name.toLowerCase().endsWith('.xlsx') && 
-          !file.name.toLowerCase().endsWith('.json')) {
-        toast({
-          title: "Invalid File Type",
-          description: "Please upload a CSV, XLSX, or JSON file.",
-          variant: "destructive"
-        });
-        return;
-      }
-      
       setUploadedFile(file.name);
       
-      // Read and process file
+      // Read and process CSV file
       const reader = new FileReader();
       reader.onload = (event) => {
-        console.log('File read successfully');
-        const content = event.target?.result as string;
-        setOriginalCsvContent(content);
-        
-        toast({
-          title: "File Loaded",
-          description: `${file.name} is ready for processing`,
-        });
+        const csvContent = event.target?.result as string;
+        // Store original CSV content for processing
+        setOriginalCsvContent(csvContent);
       };
-      
-      reader.onerror = (error) => {
-        console.error('File reading error:', error);
-        toast({
-          title: "File Reading Error",
-          description: "Failed to read the uploaded file",
-          variant: "destructive"
-        });
-      };
-      
       reader.readAsText(file);
     }
   };
@@ -274,26 +245,21 @@ export const RightPanel = ({ onFileUpload, onCodeUpdate }: RightPanelProps) => {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="relative">
-            <div className="border-2 border-dashed border-muted rounded-lg p-4 text-center hover:border-primary/50 transition-colors">
-              <input
-                type="file"
-                accept=".csv,.xlsx,.json"
-                onChange={handleFileInputChange}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                id="file-upload"
-                multiple={false}
-              />
-              <div className="pointer-events-none">
-                <Upload className="w-6 h-6 mx-auto mb-2 opacity-50" />
-                <p className="text-sm text-muted-foreground">
-                  Drop CSV files here or click to browse
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Supports CSV, XLSX, JSON files
-                </p>
-              </div>
-            </div>
+          <div className="border-2 border-dashed border-muted rounded-lg p-4 text-center">
+            <input
+              type="file"
+              accept=".csv,.xlsx,.json"
+              onChange={handleFileInputChange}
+              className="hidden"
+              id="file-upload"
+            />
+            <label
+              htmlFor="file-upload"
+              className="cursor-pointer text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Upload className="w-6 h-6 mx-auto mb-2 opacity-50" />
+              Drop CSV files here or click to browse
+            </label>
           </div>
           
           {uploadedFile && (
