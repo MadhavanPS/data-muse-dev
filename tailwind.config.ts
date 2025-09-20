@@ -19,44 +19,81 @@ export default {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
+        
+        /* IDE Color System */
+        panel: {
+          background: "hsl(var(--panel-background))",
+          foreground: "hsl(var(--panel-foreground))",
+          border: "hsl(var(--panel-border))",
+        },
+        editor: {
+          background: "hsl(var(--editor-background))",
+          foreground: "hsl(var(--editor-foreground))",
+          selection: "hsl(var(--editor-selection))",
+          "line-numbers": "hsl(var(--editor-line-numbers))",
+        },
+        sidebar: {
+          background: "hsl(var(--sidebar-background))",
+          foreground: "hsl(var(--sidebar-foreground))",
+          active: "hsl(var(--sidebar-active))",
+        },
+        tab: {
+          background: "hsl(var(--tab-background))",
+          active: "hsl(var(--tab-active))",
+          hover: "hsl(var(--tab-hover))",
+          border: "hsl(var(--tab-border))",
+        },
+        viz: {
+          background: "hsl(var(--viz-background))",
+          border: "hsl(var(--viz-border))",
+          header: "hsl(var(--viz-header))",
+        },
+        chat: {
+          background: "hsl(var(--chat-background))",
+          "message-user": "hsl(var(--chat-message-user))",
+          "message-ai": "hsl(var(--chat-message-ai))",
+        },
+        
         primary: {
           DEFAULT: "hsl(var(--primary))",
+          hover: "hsl(var(--primary-hover))",
           foreground: "hsl(var(--primary-foreground))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
+          hover: "hsl(var(--secondary-hover))",
           foreground: "hsl(var(--secondary-foreground))",
         },
-        destructive: {
-          DEFAULT: "hsl(var(--destructive))",
-          foreground: "hsl(var(--destructive-foreground))",
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          hover: "hsl(var(--accent-hover))",
+          foreground: "hsl(var(--accent-foreground))",
         },
+        
+        /* Status Colors */
+        success: "hsl(var(--success))",
+        warning: "hsl(var(--warning))",
+        error: "hsl(var(--error))",
+        info: "hsl(var(--info))",
+        
         muted: {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",
         },
-        accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
-        },
-        popover: {
-          DEFAULT: "hsl(var(--popover))",
-          foreground: "hsl(var(--popover-foreground))",
-        },
-        card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
-        },
-        sidebar: {
-          DEFAULT: "hsl(var(--sidebar-background))",
-          foreground: "hsl(var(--sidebar-foreground))",
-          primary: "hsl(var(--sidebar-primary))",
-          "primary-foreground": "hsl(var(--sidebar-primary-foreground))",
-          accent: "hsl(var(--sidebar-accent))",
-          "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
-          border: "hsl(var(--sidebar-border))",
-          ring: "hsl(var(--sidebar-ring))",
-        },
+      },
+      fontFamily: {
+        sans: ['var(--font-sans)'],
+        mono: ['var(--font-mono)'],
+      },
+      backgroundImage: {
+        'gradient-primary': 'var(--gradient-primary)',
+        'gradient-panel': 'var(--gradient-panel)',
+        'gradient-accent': 'var(--gradient-accent)',
+      },
+      boxShadow: {
+        'ide-sm': 'var(--shadow-sm)',
+        'ide-md': 'var(--shadow-md)',
+        'ide-lg': 'var(--shadow-lg)',
       },
       borderRadius: {
         lg: "var(--radius)",
