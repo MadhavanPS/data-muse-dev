@@ -14,16 +14,69 @@ serve(async (req) => {
   }
 
   try {
-    const { 
-      prompt, 
-      context, 
-      selectedText, 
-      fileType, 
-      requestType 
+    const {
+      prompt,
+      context,
+      selectedText,
+      fileType,
+      requestType,
     } = await req.json();
 
+    // Extract CSV context if provided by the client
+    const csvData = context?.csvData || null as null | {
+      filename?: string;
+      content?: string;
+      preview?: string;
+    };
+
+    const csvFilename = csvData?.filename || '';
+    const csvContent = csvData?.content || '';
+    const csvPreview = csvData?.preview || (csvContent ? csvContent.split(/\r?\n/).slice(0, 10).join('\n') : '');
+
+    // Simple CSV header parser with basic quote handling
+    function parseCsvHeader(csv: string): string[] {
+      const firstLine = (csv.split(/\r?\n/)[0] || '').trim();
+      if (!firstLine) return [];
+      const cols: string[] = [];
+      let cur = '';
+      let inQuotes = false;
+      for (let i = 0; i < firstLine.length; i++) {
+        const ch = firstLine[i];
+        if (ch === '"') {
+          if (inQuotes && firstLine[i + 1] === '"') {
+            cur += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (ch === ',' && !inQuotes) {
+          cols.push(cur.trim());
+          cur = '';
+        } else {
+          cur += ch;
+        }
+      }
+      cols.push(cur.trim());
+      return cols.filter(Boolean);
+    }
+
+    const headerColumns = csvContent ? parseCsvHeader(csvContent) : [];
+
+    const lowerPrompt = String(prompt || '').toLowerCase();
+    const asksForColumns = /\bcolumns?\b|\bheaders?\b/.test(lowerPrompt) || /list .*columns?/.test(lowerPrompt);
+
+    // Fast-path: if the user asks for columns and CSV is present, answer deterministically
+    if (csvContent && asksForColumns) {
+      const list = headerColumns.length ? headerColumns : ['(No header row detected)'];
+      const contentStr = `Here are the columns detected from ${csvFilename || 'the uploaded CSV'}:\n- ${list.join('\n- ')}`;
+      return new Response(
+        JSON.stringify({ content: contentStr, requestType: 'data_analysis', success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Build a stronger system prompt that explicitly surfaces CSV context
     let systemPrompt = '';
-    
     switch (requestType) {
       case 'code_generation':
         systemPrompt = `You are an expert programmer. Generate clean, efficient code based on the user's request.
@@ -39,49 +92,60 @@ Provide the refactored code with brief comments explaining major changes.`;
         break;
       case 'data_analysis':
         systemPrompt = `You are a data analyst. Help analyze CSV data and generate insights.
-Context: Working with CSV data files.
-Provide clear, actionable insights and suggest appropriate visualizations.`;
+When CSV context is provided, always base your answers strictly on it. If the user asks for column names, list them exactly from the header.
+If something is not present in the data, clearly say so.`;
         break;
       default:
         systemPrompt = `You are a helpful coding assistant specializing in SQL, Python, and data analysis.
-Context: Working with ${fileType} files in an IDE environment.`;
+When CSV context is provided, prefer it to answer data questions accurately.`;
     }
 
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-goog-api-key': geminiApiKey,
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: `${systemPrompt}\n\nUser Request: ${prompt}\n\nContext: ${JSON.stringify(context)}`
-          }]
-        }],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 2000,
-        }
-      }),
-    });
+    const csvContextSection = csvContent
+      ? `CSV CONTEXT\n- File: ${csvFilename || 'uploaded.csv'}\n- Columns (${headerColumns.length}): ${headerColumns.join(', ')}\n- Preview (first lines):\n${csvPreview}\n\nInstructions: Use this CSV context to answer the user's data questions. If the question is about columns, repeat the exact names above.`
+      : '';
 
-    const data = await response.json();
-    
-    if (!response.ok) {
+    const geminiResponse = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-goog-api-key': geminiApiKey,
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: `${systemPrompt}\n\n${csvContextSection}\n\nUser Request: ${prompt}\n\nIDE Context (may include active file, code selection, and files): ${JSON.stringify(
+                    context
+                  )}`,
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.5,
+            maxOutputTokens: 1800,
+          },
+        }),
+      }
+    );
+
+    const data = await geminiResponse.json();
+
+    if (!geminiResponse.ok) {
       console.error('Gemini API error:', data);
       throw new Error(data.error?.message || 'AI request failed');
     }
 
-    const generatedContent = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated';
+    const generatedContent =
+      data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated';
 
-    return new Response(JSON.stringify({ 
-      content: generatedContent,
-      requestType,
-      success: true 
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({ content: generatedContent, requestType, success: true }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   } catch (error) {
     console.error('Error in ai-code-assistant function:', error);
     return new Response(JSON.stringify({ 
