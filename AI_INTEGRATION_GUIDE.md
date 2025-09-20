@@ -166,4 +166,88 @@ The IDE includes mock responses that simulate your models. Replace these with ac
 4. Test with sample data
 5. Deploy and configure production environment
 
-The IDE is fully prepared for your AI/ML integration with comprehensive context awareness and clean separation between UI and model logic.
+## CSV Processing & Dataset Cleaning Integration
+
+### Current Implementation
+The IDE now supports dynamic CSV processing with:
+- File upload with cleaning preview
+- Cleaned dataset opens in new tab
+- Original and cleaned files both accessible  
+- AI assistant aware of CSV data for queries
+
+### ML Model Integration Points
+
+#### 1. Dataset Cleaning Model
+**File**: `src/utils/csvProcessing.ts`
+**Function**: `cleanDataset()`
+
+Replace the basic cleaning logic with your ML model:
+
+```typescript
+// Replace this function with your ML model API call
+export const cleanDataset = async (csvContent: string) => {
+  // Your ML model endpoint
+  const response = await fetch('/api/clean-dataset', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ csvData: csvContent })
+  });
+  
+  const result = await response.json();
+  return {
+    cleanedContent: result.cleanedCsv,
+    stats: result.cleaningStats
+  };
+};
+```
+
+#### 2. CSV Query Analysis Model
+**File**: `src/utils/csvProcessing.ts`
+**Function**: `analyzeCsvQuery()`
+
+Integrate your NLP model for data queries:
+
+```typescript
+export const analyzeCsvQuery = async (csvContent: string, query: string) => {
+  const response = await fetch('/api/analyze-csv-query', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ 
+      csvData: csvContent, 
+      query: query,
+      context: 'data_analysis'
+    })
+  });
+  
+  return await response.json();
+};
+```
+
+#### 3. Real-time Integration in Chat
+**File**: `src/components/RightPanel.tsx`
+**Lines**: 90-120
+
+The chat now detects data queries and knows about CSV files. Update the AI response logic:
+
+```typescript
+// In handleSendMessage function
+if (isDataQuery && csvFiles.length > 0) {
+  const latestCsv = csvFiles[csvFiles.length - 1];
+  const csvContent = fileContents[latestCsv.fileName];
+  
+  // Call your ML model
+  const analysis = await analyzeCsvQuery(csvContent, message);
+  aiResponse = analysis.response;
+}
+```
+
+## Ready for Integration
+✅ Context-aware AI assistant with access to active code
+✅ Code generation endpoints ready for your models
+✅ Dashboard creation pipeline prepared
+✅ File management system with tab handling
+✅ CSV file handling with dynamic paths
+✅ Cleaned datasets auto-open in new tabs  
+✅ AI assistant context-aware of CSV data
+✅ Query detection for data analysis
+✅ Interoperability between chat and code editor

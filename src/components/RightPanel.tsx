@@ -23,8 +23,10 @@ interface Message {
 }
 
 interface RightPanelProps {
-  onFileUpload: (files: FileList) => void;
+  onFileUpload: (originalFile: string, originalContent: string, cleanedFile: string, cleanedContent: string) => void;
 }
+
+import { cleanDataset } from '@/utils/csvProcessing';
 
 export const RightPanel = ({ onFileUpload }: RightPanelProps) => {
   const { activeTab, getActiveContent, getAllFilesContent, selectedText } = useEditor();
@@ -39,6 +41,13 @@ export const RightPanel = ({ onFileUpload }: RightPanelProps) => {
   ]);
   const [isLoading, setIsLoading] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<string | null>(null);
+  const [originalCsvContent, setOriginalCsvContent] = useState<string | null>(null);
+
+  // CSV Processing Function
+  const processCsvCleaning = (csvContent: string): string => {
+    const { cleanedContent } = cleanDataset(csvContent);
+    return cleanedContent;
+  };
 
   const handleSendMessage = () => {
     if (!message.trim()) return;
@@ -65,37 +74,72 @@ export const RightPanel = ({ onFileUpload }: RightPanelProps) => {
     setMessage('');
     setIsLoading(true);
     
-    // TODO: Send context to AI model
+    // TODO: Send context to AI model with CSV data awareness
     console.log('Context for AI:', context);
     
-    // Simulate AI response with context awareness
+    // Enhanced AI response with CSV query capability
     setTimeout(() => {
-      const aiResponse: Message = {
+      let aiResponse = '';
+      
+      // Check if user is asking about data analysis and we have CSV files
+      const csvFiles = allFiles.filter(f => f.type === 'csv');
+      const isDataQuery = message.toLowerCase().includes('top') || 
+                         message.toLowerCase().includes('perform') ||
+                         message.toLowerCase().includes('analyze') ||
+                         message.toLowerCase().includes('show') ||
+                         message.toLowerCase().includes('find');
+      
+      if (isDataQuery && csvFiles.length > 0) {
+        const latestCsv = csvFiles[csvFiles.length - 1]; // Get most recent CSV
+        aiResponse = `I can see you're working with data in "${latestCsv.fileName}". Based on your query "${message}", I would analyze the CSV data to find the information you're looking for. Once the ML models are integrated, I'll be able to process the actual data and provide specific insights.`;
+      } else {
+        aiResponse = `I can see you're working on "${activeTab?.name || 'a file'}" with ${activeTab?.type?.toUpperCase() || 'code'}. Once the AI models are integrated, I'll analyze your current code context and provide targeted assistance.`;
+      }
+      
+      const aiResponseMsg: Message = {
         id: (Date.now() + 1).toString(),
         type: 'ai',
-        content: `I can see you're working on "${activeTab?.name || 'a file'}" with ${activeTab?.type?.toUpperCase() || 'code'}. Once the AI models are integrated, I'll analyze your current code context and provide targeted assistance.`,
+        content: aiResponse,
         timestamp: new Date()
       };
-      setMessages(prev => [...prev, aiResponse]);
+      setMessages(prev => [...prev, aiResponseMsg]);
       setIsLoading(false);
     }, 1500);
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setUploadedFile(e.target.files[0].name);
-      onFileUpload(e.target.files);
+      const file = e.target.files[0];
+      setUploadedFile(file.name);
+      
+      // Read and process CSV file
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const csvContent = event.target?.result as string;
+        // Store original CSV content for processing
+        setOriginalCsvContent(csvContent);
+      };
+      reader.readAsText(file);
     }
   };
 
   const handleApproveFile = () => {
-    // Handle file approval logic
+    if (!uploadedFile || !originalCsvContent) return;
+    
+    // Process the CSV through cleaning function
+    const cleanedContent = processCsvCleaning(originalCsvContent);
+    
+    // Create new tab with cleaned data
+    const cleanedFileName = uploadedFile.replace('.csv', '_cleaned.csv');
+    onFileUpload(uploadedFile, originalCsvContent, cleanedFileName, cleanedContent);
+    
     setUploadedFile(null);
+    setOriginalCsvContent(null);
   };
 
   const handleRejectFile = () => {
-    // Handle file rejection logic
     setUploadedFile(null);
+    setOriginalCsvContent(null);
   };
 
   return (

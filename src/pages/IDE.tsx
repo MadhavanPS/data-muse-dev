@@ -124,10 +124,42 @@ const IDE = () => {
     });
   };
 
-  const handleFileUpload = (files: FileList) => {
+  const handleFileUpload = (originalFile: string, originalContent: string, cleanedFile: string, cleanedContent: string) => {
+    // Create tabs for both original and cleaned files
+    const originalId = Date.now().toString();
+    const cleanedId = (Date.now() + 1).toString();
+    
+    const originalTab: FileTab = {
+      id: originalId,
+      name: originalFile,
+      type: 'csv',
+      isActive: false,
+      isDirty: false
+    };
+    
+    const cleanedTab: FileTab = {
+      id: cleanedId,
+      name: cleanedFile,
+      type: 'csv',
+      isActive: true,
+      isDirty: false
+    };
+    
+    setTabs(prev => [
+      ...prev.map(tab => ({ ...tab, isActive: false })),
+      originalTab,
+      cleanedTab
+    ]);
+    
+    setFileContents(prev => ({
+      ...prev,
+      [originalId]: originalContent,
+      [cleanedId]: cleanedContent
+    }));
+    
     toast({
-      title: "File Uploaded",
-      description: "Dataset uploaded and will be processed for cleaning."
+      title: "Dataset Processed",
+      description: `${cleanedFile} created and opened. Original file also available in tabs.`
     });
   };
 

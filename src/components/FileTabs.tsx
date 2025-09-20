@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 export interface FileTab {
   id: string;
   name: string;
-  type: 'sql' | 'python';
+  type: 'sql' | 'python' | 'csv';
   isActive: boolean;
   isDirty: boolean;
 }

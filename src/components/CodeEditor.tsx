@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 
 interface CodeEditorProps {
   activeFile?: string;
-  language: 'sql' | 'python';
+  language: 'sql' | 'python' | 'csv';
   content: string;
   onChange: (content: string) => void;
   onRun?: () => void;
@@ -29,7 +29,12 @@ export const CodeEditor = ({
   }, [content]);
 
   const getLanguageLabel = () => {
-    return language === 'sql' ? 'SQL' : 'Python';
+    switch(language) {
+      case 'sql': return 'SQL';
+      case 'python': return 'Python';
+      case 'csv': return 'CSV Data';
+      default: return 'File';
+    }
   };
 
   const getSampleContent = () => {
@@ -45,7 +50,7 @@ FROM your_table
 WHERE condition = 'value'
 GROUP BY column1, column2
 ORDER BY count DESC;`;
-    } else {
+    } else if (language === 'python') {
       return `# Python Code Editor
 # Start writing your Python code here
 
@@ -60,6 +65,13 @@ def analyze_data(df):
     return df.describe()
 
 # Your code here`;
+    } else {
+      return `# CSV Dataset
+# This file contains your cleaned dataset
+# Use the AI assistant to analyze this data
+
+# Dataset is ready for analysis
+# Ask questions like "Show me the top 5 performers" in the chat`;
     }
   };
 
@@ -97,15 +109,17 @@ def analyze_data(df):
               <Save className="w-4 h-4 mr-1" />
               Save
             </Button>
-            <Button 
-              variant="default" 
-              size="sm"
-              onClick={onRun}
-              title={`Run ${getLanguageLabel()}`}
-            >
-              <Play className="w-4 h-4 mr-1" />
-              Run
-            </Button>
+            {language !== 'csv' && (
+              <Button 
+                variant="default" 
+                size="sm"
+                onClick={onRun}
+                title={`Run ${getLanguageLabel()}`}
+              >
+                <Play className="w-4 h-4 mr-1" />
+                Run
+              </Button>
+            )}
           </div>
         </div>
       </div>
