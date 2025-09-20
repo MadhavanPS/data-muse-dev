@@ -35,10 +35,11 @@ Suggested Chart Type: ${chartType || 'auto-detect best type'}
 
 Respond with valid JSON only.`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-goog-api-key': geminiApiKey,
       },
       body: JSON.stringify({
         contents: [{
