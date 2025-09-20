@@ -58,7 +58,10 @@ export const cleanDataset = (csvContent: string): { cleanedContent: string; stat
     cleaningOperations
   };
   
-  // Create cleaned content with summary
+  // Get first 8 rows for preview (including header)
+  const previewRows = cleanedLines.slice(0, Math.min(9, cleanedLines.length)); // Header + 8 data rows
+  
+  // Create cleaned content with summary and data preview
   const cleaningSummary = `# Dataset Cleaning Summary
 # Original rows: ${stats.originalRows}
 # Cleaned rows: ${stats.cleanedRows}
@@ -66,10 +69,14 @@ export const cleanDataset = (csvContent: string): { cleanedContent: string; stat
 # Operations: ${stats.cleaningOperations.join(', ')}
 # Ready for analysis - Ask the AI assistant about this data!
 
+# First ${Math.min(8, stats.cleanedRows)} rows of cleaned data:
+${previewRows.join('\n')}
+
+# ... (${Math.max(0, stats.cleanedRows - Math.min(8, stats.cleanedRows))} more rows)
 `;
-  
+
   return {
-    cleanedContent: cleaningSummary + cleanedLines.join('\n'),
+    cleanedContent: cleaningSummary,
     stats
   };
 };
