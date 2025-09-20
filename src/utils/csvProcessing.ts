@@ -8,68 +8,93 @@ interface DatasetStats {
   cleaningOperations: string[];
 }
 
+export const parseAndCleanCsv = (csvContent: string) => {
+  const lines = csvContent.split('\n').filter(line => line.trim() !== '');
+  
+  if (lines.length === 0) {
+    return { headers: [], rows: [], stats: null };
+  }
+
+  const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+  const dataRows = lines.slice(1);
+  
+  const cleanedRows = dataRows.map(line => 
+    line.split(',').map(cell => {
+      let cleaned = cell.trim();
+      
+      // Remove quotes if they wrap the entire cell
+      if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
+        cleaned = cleaned.slice(1, -1);
+      }
+      
+      // Handle common null/empty representations
+      if (cleaned.toLowerCase() === 'null' || 
+          cleaned.toLowerCase() === 'n/a' || 
+          cleaned === '' || 
+          cleaned === '-') {
+        return 'NULL';
+      }
+      
+      return cleaned;
+    })
+  );
+
+  const stats = {
+    totalRows: cleanedRows.length,
+    columns: headers.length,
+    dataTypes: headers.map(() => 'mixed') // Could be enhanced to detect types
+  };
+
+  return { headers, rows: cleanedRows, stats };
+};
+
+export const getCsvHead = (csvContent: string, numRows: number = 5) => {
+  const { headers, rows } = parseAndCleanCsv(csvContent);
+  const headRows = rows.slice(0, numRows);
+  
+  // Convert back to CSV format for display
+  const csvLines = [
+    headers.join(','),
+    ...headRows.map(row => row.join(','))
+  ];
+  
+  return csvLines.join('\n');
+};
+
 export const cleanDataset = (csvContent: string): { cleanedContent: string; stats: DatasetStats } => {
-  const lines = csvContent.split('\n');
-  const headers = lines[0]?.split(',') || [];
+  const { headers, rows, stats: parseStats } = parseAndCleanCsv(csvContent);
   
-  const cleaningOperations: string[] = [];
-  
-  // Remove empty rows
-  const nonEmptyLines = lines.filter(line => line.trim() !== '');
-  if (nonEmptyLines.length !== lines.length) {
-    cleaningOperations.push(`Removed ${lines.length - nonEmptyLines.length} empty rows`);
-  }
-  
-  // Trim whitespace and handle common data issues
-  const cleanedLines = nonEmptyLines.map((line, index) => {
-    if (index === 0) return line; // Keep headers as is
-    
-    return line
-      .split(',')
-      .map(cell => {
-        let cleaned = cell.trim();
-        
-        // Remove quotes if they wrap the entire cell
-        if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
-          cleaned = cleaned.slice(1, -1);
-        }
-        
-        // Handle common null/empty representations
-        if (cleaned.toLowerCase() === 'null' || 
-            cleaned.toLowerCase() === 'n/a' || 
-            cleaned === '' || 
-            cleaned === '-') {
-          return 'NULL';
-        }
-        
-        return cleaned;
-      })
-      .join(',');
-  });
-  
-  if (cleaningOperations.length === 0) {
-    cleaningOperations.push('Basic formatting and null value standardization');
-  }
+  const cleaningOperations = [
+    'Basic formatting and null value standardization',
+    'Trimmed whitespace and removed quotes',
+    'Standardized null representations'
+  ];
   
   const stats: DatasetStats = {
-    originalRows: lines.length - 1, // Exclude header
-    cleanedRows: cleanedLines.length - 1, // Exclude header
+    originalRows: rows.length,
+    cleanedRows: rows.length,
     columns: headers.length,
     cleaningOperations
   };
   
-  // Create cleaned content with summary
+  // Create cleaned content with df.head() preview
+  const headPreview = getCsvHead(csvContent, 5);
   const cleaningSummary = `# Dataset Cleaning Summary
 # Original rows: ${stats.originalRows}
 # Cleaned rows: ${stats.cleanedRows}
 # Columns: ${stats.columns}
 # Operations: ${stats.cleaningOperations.join(', ')}
-# Ready for analysis - Ask the AI assistant about this data!
+# 
+# df.head() - First 5 rows preview:
+# ================================
 
+${headPreview}
+
+# Full dataset available for analysis - Ask the AI assistant about this data!
 `;
   
   return {
-    cleanedContent: cleaningSummary + cleanedLines.join('\n'),
+    cleanedContent: cleaningSummary,
     stats
   };
 };
