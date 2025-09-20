@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 
 interface CodeEditorProps {
   activeFile?: string;
-  language: 'sql' | 'python' | 'csv';
+  language: 'sql' | 'python' | 'csv' | 'json';
   content: string;
   onChange: (content: string) => void;
   onRun?: () => void;
@@ -33,6 +33,7 @@ export const CodeEditor = ({
       case 'sql': return 'SQL';
       case 'python': return 'Python';
       case 'csv': return 'CSV Data';
+      case 'json': return 'JSON';
       default: return 'File';
     }
   };
@@ -65,6 +66,22 @@ def analyze_data(df):
     return df.describe()
 
 # Your code here`;
+    } else if (language === 'json') {
+      return `{
+  "name": "example-data",
+  "version": "1.0.0",
+  "data": [
+    {
+      "id": 1,
+      "name": "Sample Record",
+      "value": 100
+    }
+  ],
+  "metadata": {
+    "created": "2024-01-01",
+    "source": "AI Assistant"
+  }
+}`;
     } else {
       return `# CSV Dataset
 # This file contains your cleaned dataset
@@ -109,7 +126,7 @@ def analyze_data(df):
               <Save className="w-4 h-4 mr-1" />
               Save
             </Button>
-            {language !== 'csv' && (
+            {(language !== 'csv' && language !== 'json') && (
               <Button 
                 variant="default" 
                 size="sm"

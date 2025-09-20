@@ -18,7 +18,7 @@ interface LeftSidebarProps {
   onPanelChange: (panel: string) => void;
   files?: FileSystemItem[];
   onFileSelect?: (file: FileSystemItem) => void;
-  onNewFile?: (type: 'sql' | 'python' | 'csv') => void;
+  onNewFile?: (type: 'sql' | 'python' | 'csv' | 'json') => void;
   onNewFolder?: () => void;
 }
 
