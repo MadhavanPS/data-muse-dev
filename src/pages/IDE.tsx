@@ -15,6 +15,7 @@ const IDE = () => {
   const { toast } = useToast();
   const [activePanel, setActivePanel] = useState('explorer');
   const [isVizFullscreen, setIsVizFullscreen] = useState(false);
+  const [isDashboardFullscreen, setIsDashboardFullscreen] = useState(false);
   
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [tabs, setTabs] = useState<FileTab[]>([
@@ -365,7 +366,9 @@ const IDE = () => {
           {/* Panel Area */}
           <div className={`${activePanel === 'explorer' ? 'w-fit' : 'w-80'} border-r border-panel-border bg-panel-background`}>
             {activePanel === 'dashboard' ? (
-              <DashboardPanel />
+              <DashboardPanel 
+                onToggleFullscreen={() => setIsDashboardFullscreen(!isDashboardFullscreen)}
+              />
             ) : activePanel === 'visualization' ? (
               <VisualizationPanel 
                 isFullscreen={isVizFullscreen}
@@ -399,6 +402,16 @@ const IDE = () => {
             onShowInlineDiff={handleShowInlineDiff}
           />
         </div>
+
+        {/* Fullscreen Dashboard Overlay */}
+        {isDashboardFullscreen && (
+          <div className="fixed inset-0 z-50 bg-background">
+            <DashboardPanel 
+              isFullscreen={true}
+              onToggleFullscreen={() => setIsDashboardFullscreen(false)}
+            />
+          </div>
+        )}
 
         {/* Fullscreen Visualization Overlay */}
         {isVizFullscreen && (
