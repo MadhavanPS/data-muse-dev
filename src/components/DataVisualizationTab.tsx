@@ -1,0 +1,139 @@
+import React, { useState } from 'react';
+import { 
+  BarChart3, 
+  LineChart, 
+  PieChart, 
+  TrendingUp,
+  Clock,
+  RefreshCw,
+  Download,
+  Sparkles
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
+import { useEditor } from '@/contexts/EditorContext';
+
+interface DataVisualizationTabProps {
+  className?: string;
+}
+
+export const DataVisualizationTab = ({ className = '' }: DataVisualizationTabProps) => {
+  const [activeTab, setActiveTab] = useState('visualization');
+  const [prompt, setPrompt] = useState('');
+  const [selectedChart, setSelectedChart] = useState('bar');
+  
+  const chartTypes = [
+    { id: 'bar', icon: BarChart3, label: 'Bar Chart' },
+    { id: 'line', icon: LineChart, label: 'Line Chart' },
+    { id: 'pie', icon: PieChart, label: 'Pie Chart' },
+    { id: 'trend', icon: TrendingUp, label: 'Trend' },
+    { id: 'time', icon: Clock, label: 'Time Series' },
+    { id: 'refresh', icon: RefreshCw, label: 'Refresh' },
+    { id: 'download', icon: Download, label: 'Download' },
+    { id: 'ai', icon: Sparkles, label: 'AI Suggest' },
+  ];
+
+  const handleGenerateVisualization = () => {
+    // TODO: Implement visualization generation
+    console.log('Generating visualization:', prompt, selectedChart);
+  };
+
+  return (
+    <div className={`bg-panel-background border-panel-border h-full flex flex-col ${className}`}>
+      {/* Header Tabs */}
+      <div className="flex border-b border-panel-border bg-sidebar-background">
+        <button
+          className={`px-4 py-2 text-sm font-medium border-r border-panel-border ${
+            activeTab === 'explorer' 
+              ? 'bg-sidebar-active text-foreground' 
+              : 'text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent'
+          }`}
+          onClick={() => setActiveTab('explorer')}
+        >
+          File Explorer
+        </button>
+        <button
+          className={`px-4 py-2 text-sm font-medium ${
+            activeTab === 'visualization' 
+              ? 'bg-sidebar-active text-foreground' 
+              : 'text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent'
+          }`}
+          onClick={() => setActiveTab('visualization')}
+        >
+          Data Visualization
+        </button>
+      </div>
+
+      {/* Quick Access Chart Buttons */}
+      <div className="p-3 border-b border-panel-border">
+        <div className="grid grid-cols-4 gap-2">
+          {chartTypes.map((chart) => {
+            const Icon = chart.icon;
+            return (
+              <Button
+                key={chart.id}
+                variant="outline"
+                size="sm"
+                className={`h-9 text-xs ${
+                  selectedChart === chart.id 
+                    ? 'bg-primary text-primary-foreground border-primary' 
+                    : 'bg-card hover:bg-accent'
+                }`}
+                onClick={() => setSelectedChart(chart.id)}
+                title={chart.label}
+              >
+                <Icon className="w-4 h-4 mr-1" />
+                {chart.id === 'bar' && 'Bar Chart'}
+                {chart.id === 'line' && 'Line Chart'}
+                {chart.id === 'pie' && 'Pie Chart'}
+                {chart.id === 'trend' && 'Trend'}
+                {chart.id === 'time' && 'Time'}
+                {chart.id === 'refresh' && 'Refresh'}
+                {chart.id === 'download' && 'Download'}
+                {chart.id === 'ai' && 'AI'}
+              </Button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Prompt Input */}
+      <div className="p-3 border-b border-panel-border">
+        <Textarea
+          placeholder="Describe what you want to visualize (e.g., 'Show sales by month as a bar chart')"
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          className="min-h-[80px] resize-none bg-background border-input text-foreground placeholder:text-muted-foreground"
+        />
+        <Button 
+          className="w-full mt-3"
+          onClick={handleGenerateVisualization}
+          disabled={!prompt.trim()}
+        >
+          Generate Visualization
+        </Button>
+      </div>
+
+      {/* Visualization Area */}
+      <div className="flex-1 p-4">
+        <Card className="h-full bg-card border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg font-semibold">Data Visualization</CardTitle>
+          </CardHeader>
+          <CardContent className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-24 h-24 mx-auto mb-4 bg-muted rounded-lg flex items-center justify-center">
+                <BarChart3 className="w-12 h-12 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-medium mb-2 text-foreground">No Visualization</h3>
+              <p className="text-sm text-muted-foreground">
+                Generate a chart from your CSV data
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+};

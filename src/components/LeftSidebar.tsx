@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { FileExplorer } from '@/components/FileExplorer';
 import { FileSystemItem } from '@/types/FileSystem';
+import { DataVisualizationTab } from '@/components/DataVisualizationTab';
 
 interface LeftSidebarProps {
   activePanel: string;
@@ -118,13 +119,18 @@ export const LeftSidebar = ({
 
       {/* Expandable Panel */}
       {activePanel === 'explorer' && (
-        <div className="w-60 bg-panel-background border-r border-panel-border">
-          <FileExplorer
-            files={files}
-            onFileSelect={onFileSelect}
-            onNewFile={onNewFile}
-            onNewFolder={onNewFolder}
-          />
+        <div className="flex">
+          <div className="w-60 bg-panel-background border-r border-panel-border">
+            <FileExplorer
+              files={files}
+              onFileSelect={onFileSelect}
+              onNewFile={onNewFile}
+              onNewFolder={onNewFolder}
+            />
+          </div>
+          <div className="w-80">
+            <DataVisualizationTab />
+          </div>
         </div>
       )}
     </div>
