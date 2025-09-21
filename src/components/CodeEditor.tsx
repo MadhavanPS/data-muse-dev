@@ -16,6 +16,7 @@ interface CodeEditorProps {
   pendingChanges?: {
     originalCode: string;
     newCode: string;
+    fullContent: string;
     onApprove: () => void;
     onReject: () => void;
   };
@@ -199,72 +200,73 @@ def analyze_data(df):
       </div>
 
       {/* Editor Content */}
-      <div className="flex-1 flex relative">
-        {pendingChanges && (
-          /* Show Diff Overlay */
-          <div className="absolute inset-0 z-20 bg-editor-background">
-            <InlineCodeDiff
-              originalCode={pendingChanges.originalCode}
-              newCode={pendingChanges.newCode}
-              language={language}
-              onApprove={pendingChanges.onApprove}
-              onReject={pendingChanges.onReject}
-              className="w-full h-full"
-            />
-          </div>
-        )}
-        
+      <div className="flex-1 flex relative">        
         {/* Always show the original editor content */}
-          <>
-            {/* Line Numbers */}
-            <div className="w-12 bg-editor-background border-r border-panel-border text-editor-line-numbers text-sm font-mono flex flex-col">
-              <div className="flex-1 px-2 py-4">
-                {lineNumbers.map((num) => (
-                  <div key={num} className="h-6 flex items-center justify-end leading-6">
-                    {num}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Code Area */}
-            <div className="flex-1 relative">
-              <Textarea
-                ref={textareaRef}
-                value={content || getSampleContent()}
-                onChange={(e) => onChange(e.target.value)}
-                onSelect={handleTextSelection}
-                onMouseUp={handleTextSelection}
-                className="editor-area w-full h-full border-0 rounded-none resize-none focus:ring-0 text-sm leading-6 p-4"
-                style={{ 
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '14px',
-                  lineHeight: '24px'
-                }}
-                placeholder={`Start writing ${getLanguageLabel()} code...`}
-              />
-              
-              {/* Send to Assistant Button */}
-              {showSendButton && (
-                <div 
-                  className="absolute z-10 animate-fade-in"
-                  style={{
-                    left: `${Math.max(10, Math.min(buttonPosition.x - 70, 300))}px`,
-                    top: `${Math.max(10, buttonPosition.y)}px`
-                  }}
-                >
-                  <Button
-                    size="sm"
-                    onClick={handleSendToAssistant}
-                    className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg border border-blue-500"
-                  >
-                    <MessageSquare className="w-3 h-3 mr-1" />
-                    Send to Assistant
-                  </Button>
+        <>
+          {/* Line Numbers */}
+          <div className="w-12 bg-editor-background border-r border-panel-border text-editor-line-numbers text-sm font-mono flex flex-col">
+            <div className="flex-1 px-2 py-4">
+              {lineNumbers.map((num) => (
+                <div key={num} className="h-6 flex items-center justify-end leading-6">
+                  {num}
                 </div>
-              )}
+              ))}
             </div>
-          </>
+          </div>
+
+          {/* Code Area */}
+          <div className="flex-1 relative">
+            <Textarea
+              ref={textareaRef}
+              value={content || getSampleContent()}
+              onChange={(e) => onChange(e.target.value)}
+              onSelect={handleTextSelection}
+              onMouseUp={handleTextSelection}
+              className="editor-area w-full h-full border-0 rounded-none resize-none focus:ring-0 text-sm leading-6 p-4"
+              style={{ 
+                fontFamily: 'var(--font-mono)',
+                fontSize: '14px',
+                lineHeight: '24px'
+              }}
+              placeholder={`Start writing ${getLanguageLabel()} code...`}
+            />
+            
+            {/* Send to Assistant Button */}
+            {showSendButton && (
+              <div 
+                className="absolute z-10 animate-fade-in"
+                style={{
+                  left: `${Math.max(10, Math.min(buttonPosition.x - 70, 300))}px`,
+                  top: `${Math.max(10, buttonPosition.y)}px`
+                }}
+              >
+                <Button
+                  size="sm"
+                  onClick={handleSendToAssistant}
+                  className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg border border-blue-500"
+                >
+                  <MessageSquare className="w-3 h-3 mr-1" />
+                  Send to Assistant
+                </Button>
+              </div>
+            )}
+            
+            {/* Diff Overlay - shows changes on top of existing code */}
+            {pendingChanges && (
+              <div className="absolute inset-0 z-10 pointer-events-none">
+                <InlineCodeDiff
+                  originalCode={pendingChanges.originalCode}
+                  newCode={pendingChanges.newCode}
+                  fullContent={pendingChanges.fullContent}
+                  language={language}
+                  onApprove={pendingChanges.onApprove}
+                  onReject={pendingChanges.onReject}
+                  className="w-full h-full pointer-events-auto"
+                />
+              </div>
+            )}
+          </div>
+        </>
       </div>
 
       {/* Status Bar */}

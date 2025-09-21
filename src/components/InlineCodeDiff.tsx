@@ -11,6 +11,7 @@ interface DiffLine {
 interface InlineCodeDiffProps {
   originalCode: string;
   newCode: string;
+  fullContent: string;
   language: 'sql' | 'python' | 'csv' | 'json';
   onApprove: () => void;
   onReject: () => void;
@@ -20,6 +21,7 @@ interface InlineCodeDiffProps {
 export const InlineCodeDiff = ({ 
   originalCode, 
   newCode, 
+  fullContent,
   language, 
   onApprove, 
   onReject,
@@ -29,49 +31,77 @@ export const InlineCodeDiff = ({
 
   useEffect(() => {
     const generateInlineDiff = () => {
-      // For inline changes, we want to show the original code with changes highlighted
-      // This creates a better context-aware diff
+      console.log('Generating diff:', { originalCode: originalCode.length, newCode: newCode.length, fullContent: fullContent.length });
       
+      // Parse the full content to understand where changes should be applied
+      const fullLines = fullContent.split('\n');
       const originalLines = originalCode.split('\n');
-      const newCodeLines = newCode.split('\n');
-      const diff: DiffLine[] = [];
+      const newLines = newCode.split('\n');
       
-      let lineNumber = 1;
-      
-      // Simple algorithm: compare line by line and highlight differences
-      const maxLines = Math.max(originalLines.length, newCodeLines.length);
-      
-      for (let i = 0; i < maxLines; i++) {
-        const originalLine = originalLines[i];
-        const newLine = newCodeLines[i];
-        
-        if (i >= originalLines.length) {
-          // New line added
-          diff.push({ type: 'added', content: newLine || '', lineNumber });
-        } else if (i >= newCodeLines.length) {
-          // Line removed
-          diff.push({ type: 'removed', content: originalLine || '', lineNumber: -1 });
-        } else if (originalLine === newLine) {
-          // Line unchanged
-          diff.push({ type: 'unchanged', content: originalLine, lineNumber });
-        } else {
-          // Line modified - show both
-          if (originalLine.trim()) {
-            diff.push({ type: 'removed', content: originalLine, lineNumber: -1 });
-          }
-          if (newLine.trim()) {
-            diff.push({ type: 'added', content: newLine, lineNumber });
+      // Find where the original code appears in the full content
+      let startLineIndex = -1;
+      for (let i = 0; i <= fullLines.length - originalLines.length; i++) {
+        let match = true;
+        for (let j = 0; j < originalLines.length; j++) {
+          if (fullLines[i + j]?.trim() !== originalLines[j]?.trim()) {
+            match = false;
+            break;
           }
         }
-        
+        if (match) {
+          startLineIndex = i;
+          break;
+        }
+      }
+      
+      console.log('Found match at line:', startLineIndex);
+      
+      const diff: DiffLine[] = [];
+      let lineNumber = 1;
+      
+      for (let i = 0; i < fullLines.length; i++) {
+        if (i >= startLineIndex && i < startLineIndex + originalLines.length && startLineIndex >= 0) {
+          // This is part of the changed section
+          const originalLineIndex = i - startLineIndex;
+          const originalLine = originalLines[originalLineIndex];
+          const newLine = newLines[originalLineIndex];
+          
+          if (originalLineIndex < newLines.length) {
+            if (originalLine !== newLine) {
+              // Line was modified
+              diff.push({ type: 'removed', content: originalLine, lineNumber: -1 });
+              diff.push({ type: 'added', content: newLine, lineNumber });
+            } else {
+              // Line unchanged
+              diff.push({ type: 'unchanged', content: originalLine, lineNumber });
+            }
+          } else {
+            // Line was removed
+            diff.push({ type: 'removed', content: originalLine, lineNumber: -1 });
+          }
+        } else if (i === startLineIndex + originalLines.length && startLineIndex >= 0) {
+          // Add any new lines that were added
+          for (let j = originalLines.length; j < newLines.length; j++) {
+            diff.push({ type: 'added', content: newLines[j], lineNumber });
+            lineNumber++;
+          }
+          // Continue with remaining unchanged lines
+          if (i < fullLines.length) {
+            diff.push({ type: 'unchanged', content: fullLines[i], lineNumber });
+          }
+        } else {
+          // Unchanged line in the full content
+          diff.push({ type: 'unchanged', content: fullLines[i], lineNumber });
+        }
         lineNumber++;
       }
       
+      console.log('Generated diff lines:', diff.length);
       setDiffLines(diff);
     };
 
     generateInlineDiff();
-  }, [originalCode, newCode]);
+  }, [originalCode, newCode, fullContent]);
 
   const getLineStyle = (type: DiffLine['type']) => {
     switch (type) {
@@ -96,9 +126,9 @@ export const InlineCodeDiff = ({
   };
 
   return (
-    <div className={`relative ${className}`}>
+    <div className={`absolute inset-0 bg-editor-background/95 backdrop-blur-sm ${className}`}>
       {/* Approval Controls */}
-      <div className="absolute top-2 right-2 z-10 flex gap-2 bg-background/90 backdrop-blur-sm rounded-md p-1 border shadow-lg">
+      <div className="absolute top-4 right-4 z-30 flex gap-2 bg-background/90 backdrop-blur-sm rounded-md p-2 border shadow-lg">
         <Button 
           variant="outline" 
           size="sm" 

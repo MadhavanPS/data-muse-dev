@@ -31,6 +31,7 @@ const IDE = () => {
   const [pendingChanges, setPendingChanges] = useState<{
     originalCode: string;
     newCode: string;
+    fullContent: string;
     onApprove: () => void;
     onReject: () => void;
   } | null>(null);
@@ -281,9 +282,12 @@ const IDE = () => {
   };
 
   const handleShowInlineDiff = (originalCode: string, newCode: string) => {
+    const currentFullContent = activeTab ? fileContents[activeTab.id] || '' : '';
+    
     setPendingChanges({
       originalCode,
       newCode,
+      fullContent: currentFullContent,
       onApprove: () => {
         // Apply the new code
         if (activeTab) {
