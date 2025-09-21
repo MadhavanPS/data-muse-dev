@@ -202,8 +202,8 @@ export const DashboardPanel = ({
   };
 
   const containerClass = isFullscreen 
-    ? "fixed inset-0 z-50 bg-background overflow-y-auto"
-    : "h-full bg-panel-background border-panel-border flex flex-col";
+    ? "fixed inset-0 z-50 bg-background overflow-y-auto flex flex-col min-h-0"
+    : "h-full bg-panel-background border-panel-border flex flex-col min-h-0";
 
   return (
     <div className={`${containerClass} ${className}`}>

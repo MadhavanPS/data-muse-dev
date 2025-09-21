@@ -238,7 +238,7 @@ export const DataVisualization = ({ csvData, fileName }: DataVisualizationProps)
   };
   
   return (
-    <div className="h-full flex flex-col space-y-4">
+    <div className="flex flex-col min-h-0 space-y-4">
       {/* Chart Type Selector */}
       <div className="flex items-center gap-2">
         {chartTypes.map((chart) => {
