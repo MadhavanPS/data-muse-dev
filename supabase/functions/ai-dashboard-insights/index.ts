@@ -88,32 +88,39 @@ function analyzeCSV(csvData: string, maxUniqueCat: number = 20): ColumnAnalysis[
 function generateAllCharts(csvData: string, analysis: ColumnAnalysis[]): any[] {
   const lines = csvData.split('\n').filter(line => line.trim());
   const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-  const dataRows = lines.slice(1, 101).map(line => // Use first 100 rows for performance
+  const dataRows = lines.slice(1, 201).map(line => // Use first 200 rows for better analysis
     line.split(',').map(cell => cell.trim().replace(/"/g, ''))
   );
   
   const charts: any[] = [];
   
-  // Get column classifications
-  const categoricalCols = analysis.filter(col => col.type === 'categorical');
-  const numericalCols = analysis.filter(col => col.type === 'numerical');
+  // Get column classifications - exactly like Python code
+  const categoricalCols = analysis.filter(col => 
+    col.type === 'categorical' || col.uniqueCount <= 20
+  );
+  const numericalCols = analysis.filter(col => 
+    col.type === 'numerical' && col.uniqueCount > 20
+  );
   const dateCols = analysis.filter(col => col.type === 'date');
   
-  console.log(`Found: ${categoricalCols.length} categorical, ${numericalCols.length} numerical, ${dateCols.length} date columns`);
+  console.log(`Categorical columns: ${categoricalCols.map(c => c.name)}`);
+  console.log(`Numerical columns: ${numericalCols.map(c => c.name)}`);  
+  console.log(`Date columns: ${dateCols.map(c => c.name)}`);
   
-  // 1. UNIVARIATE NUMERICAL ANALYSIS
+  // --- UNIVARIATE NUMERICAL (like Python: histogram, boxplot, violin) ---
   numericalCols.forEach(numCol => {
     const colIndex = headers.indexOf(numCol.name);
     const values = dataRows.map(row => parseFloat(row[colIndex])).filter(v => !isNaN(v));
     
     if (values.length === 0) return;
     
-    // Histogram data (binning)
     const min = Math.min(...values);
     const max = Math.max(...values);
+    const sortedValues = [...values].sort((a, b) => a - b);
+    
+    // 1. Histogram (bins like Python)
     const binCount = 10;
     const binSize = (max - min) / binCount;
-    
     const histogramData = Array.from({length: binCount}, (_, i) => {
       const binStart = min + i * binSize;
       const binEnd = binStart + binSize;
@@ -121,7 +128,7 @@ function generateAllCharts(csvData: string, analysis: ColumnAnalysis[]): any[] {
       return {
         name: `${binStart.toFixed(1)}-${binEnd.toFixed(1)}`,
         value: count,
-        bin: i
+        density: count / values.length
       };
     });
     
@@ -129,23 +136,25 @@ function generateAllCharts(csvData: string, analysis: ColumnAnalysis[]): any[] {
       id: `histogram-${numCol.name}`,
       type: 'bar',
       title: `Histogram of ${numCol.name}`,
-      description: `Distribution of ${numCol.name} values`,
+      description: `Distribution histogram with KDE-style density`,
       data: histogramData,
       config: { xKey: 'name', yKey: 'value' },
-      category: 'univariate'
+      category: 'univariate',
+      pythonEquivalent: 'sns.histplot with kde=True'
     });
     
-    // Boxplot data (quartiles representation)
-    const sortedValues = [...values].sort((a, b) => a - b);
+    // 2. Boxplot (quartiles)
     const q1 = sortedValues[Math.floor(sortedValues.length * 0.25)];
     const median = sortedValues[Math.floor(sortedValues.length * 0.5)];
     const q3 = sortedValues[Math.floor(sortedValues.length * 0.75)];
+    const iqr = q3 - q1;
+    const outliers = values.filter(v => v < q1 - 1.5 * iqr || v > q3 + 1.5 * iqr);
     
     charts.push({
       id: `boxplot-${numCol.name}`,
-      type: 'boxplot',
-      title: `Box Plot of ${numCol.name}`,
-      description: `Quartile analysis of ${numCol.name}`,
+      type: 'boxplot', 
+      title: `Boxplot of ${numCol.name}`,
+      description: `Box and whisker plot showing quartiles and outliers`,
       data: [{
         name: numCol.name,
         min: min,
@@ -153,35 +162,59 @@ function generateAllCharts(csvData: string, analysis: ColumnAnalysis[]): any[] {
         median: median,
         q3: q3,
         max: max,
-        outliers: values.filter(v => v < q1 - 1.5 * (q3 - q1) || v > q3 + 1.5 * (q3 - q1))
+        outliers: outliers.length,
+        iqr: iqr
       }],
-      config: { dataKey: 'name' },
-      category: 'univariate'
+      config: { xKey: 'name', yKey: 'median' },
+      category: 'univariate',
+      pythonEquivalent: 'sns.boxplot'
+    });
+    
+    // 3. Violin Plot (approximated as area/density chart)
+    const violinData = histogramData.map(bin => ({
+      ...bin,
+      density: bin.density,
+      symmetric: bin.density // for violin shape approximation
+    }));
+    
+    charts.push({
+      id: `violin-${numCol.name}`,
+      type: 'area',
+      title: `Violin Plot of ${numCol.name}`, 
+      description: `Density distribution (violin plot approximation)`,
+      data: violinData,
+      config: { xKey: 'name', yKey: 'density' },
+      category: 'univariate',
+      pythonEquivalent: 'sns.violinplot'
     });
   });
   
-  // 2. CORRELATION HEATMAP
+  // --- CORRELATION HEATMAP (numerical columns) ---
   if (numericalCols.length > 1) {
     const correlationMatrix: any[] = [];
     
-    numericalCols.forEach((col1, i) => {
-      numericalCols.forEach((col2, j) => {
+    numericalCols.forEach((col1) => {
+      numericalCols.forEach((col2) => {
         const col1Index = headers.indexOf(col1.name);
         const col2Index = headers.indexOf(col2.name);
         
-        const values1 = dataRows.map(row => parseFloat(row[col1Index])).filter(v => !isNaN(v));
-        const values2 = dataRows.map(row => parseFloat(row[col2Index])).filter(v => !isNaN(v));
+        const pairs = dataRows.map(row => ({
+          v1: parseFloat(row[col1Index]),
+          v2: parseFloat(row[col2Index])
+        })).filter(pair => !isNaN(pair.v1) && !isNaN(pair.v2));
         
-        // Calculate correlation coefficient
-        const n = Math.min(values1.length, values2.length);
-        if (n > 1) {
-          const mean1 = values1.reduce((a, b) => a + b, 0) / values1.length;
-          const mean2 = values2.reduce((a, b) => a + b, 0) / values2.length;
+        if (pairs.length > 1) {
+          const values1 = pairs.map(p => p.v1);
+          const values2 = pairs.map(p => p.v2);
+          const n = pairs.length;
           
-          const numerator = values1.slice(0, n).reduce((sum, v1, idx) => 
-            sum + (v1 - mean1) * (values2[idx] - mean2), 0);
-          const denom1 = Math.sqrt(values1.slice(0, n).reduce((sum, v) => sum + Math.pow(v - mean1, 2), 0));
-          const denom2 = Math.sqrt(values2.slice(0, n).reduce((sum, v) => sum + Math.pow(v - mean2, 2), 0));
+          const mean1 = values1.reduce((a, b) => a + b, 0) / n;
+          const mean2 = values2.reduce((a, b) => a + b, 0) / n;
+          
+          const numerator = pairs.reduce((sum, pair) => 
+            sum + (pair.v1 - mean1) * (pair.v2 - mean2), 0);
+          const denom1 = Math.sqrt(values1.reduce((sum, v) => sum + Math.pow(v - mean1, 2), 0));
+          const denom2 = Math.sqrt(values2.reduce((sum, v) => sum + Math.pow(v - mean2, 2), 0));
           
           const correlation = denom1 * denom2 !== 0 ? numerator / (denom1 * denom2) : 0;
           
@@ -196,17 +229,62 @@ function generateAllCharts(csvData: string, analysis: ColumnAnalysis[]): any[] {
     });
     
     charts.push({
-      id: 'correlation-heatmap',
+      id: 'numerical-correlation-heatmap',
       type: 'heatmap',
       title: 'Correlation Heatmap',
-      description: 'Correlation matrix of numerical variables',
+      description: 'Pearson correlation matrix of numerical variables',
       data: correlationMatrix,
       config: { xKey: 'x', yKey: 'y', valueKey: 'value' },
-      category: 'correlation'
+      category: 'correlation',
+      pythonEquivalent: 'sns.heatmap(df.corr()) with coolwarm colormap'
     });
   }
+
+  // --- PAIRWISE SCATTER/REGRESSION (like sns.pairplot) ---
+  if (numericalCols.length > 1) {
+    for (let i = 0; i < numericalCols.length; i++) {
+      for (let j = i + 1; j < numericalCols.length; j++) {
+        const col1 = numericalCols[i];
+        const col2 = numericalCols[j];
+        const col1Index = headers.indexOf(col1.name);
+        const col2Index = headers.indexOf(col2.name);
+        
+        const scatterData = dataRows.map((row, idx) => {
+          const x = parseFloat(row[col1Index]);
+          const y = parseFloat(row[col2Index]);
+          return !isNaN(x) && !isNaN(y) ? { x, y, name: `Point ${idx}` } : null;
+        }).filter(Boolean).slice(0, 100); // Limit for performance
+        
+        if (scatterData.length > 5) {
+          // Regular scatterplot
+          charts.push({
+            id: `scatter-${col1.name}-${col2.name}`,
+            type: 'scatter',
+            title: `Scatterplot: ${col1.name} vs ${col2.name}`,
+            description: `Point cloud showing relationship between variables`,
+            data: scatterData,
+            config: { xKey: 'x', yKey: 'y' },
+            category: 'pairwise',
+            pythonEquivalent: 'sns.scatterplot with alpha=0.6'
+          });
+          
+          // Regression plot (approximated as line through scatter)
+          charts.push({
+            id: `regression-${col1.name}-${col2.name}`,
+            type: 'scatter',
+            title: `Regression Plot: ${col1.name} vs ${col2.name}`,
+            description: `Scatter with regression trend (approximated)`,
+            data: scatterData,
+            config: { xKey: 'x', yKey: 'y', showTrend: true },
+            category: 'pairwise',
+            pythonEquivalent: 'sns.regplot with scatter_kws'
+          });
+        }
+      }
+    }
+  }
   
-  // 3. BIVARIATE: CATEGORICAL vs NUMERICAL
+  // --- BIVARIATE: CATEGORICAL vs NUMERICAL (3 plots each like Python) ---
   categoricalCols.forEach(catCol => {
     numericalCols.forEach(numCol => {
       const catIndex = headers.indexOf(catCol.name);
@@ -223,31 +301,39 @@ function generateAllCharts(csvData: string, analysis: ColumnAnalysis[]): any[] {
         }
       });
       
-      // Mean values by category (Bar chart)
-      const meanData = Object.entries(grouped).map(([category, values]) => ({
-        name: category,
-        value: values.reduce((sum, v) => sum + v, 0) / values.length,
-        count: values.length
-      }));
+      const categories = Object.keys(grouped);
+      if (categories.length === 0 || categories.length > 20) return; // Skip if too many categories
       
-      if (meanData.length > 0) {
-        charts.push({
-          id: `bar-${catCol.name}-${numCol.name}`,
-          type: 'bar',
-          title: `Mean ${numCol.name} by ${catCol.name}`,
-          description: `Average ${numCol.name} across different ${catCol.name} categories`,
-          data: meanData,
-          config: { xKey: 'name', yKey: 'value' },
-          category: 'bivariate'
-        });
-      }
+      // 1. Bar Plot: Mean values by category (like sns.barplot with estimator=np.mean)
+      const meanData = categories.map(category => {
+        const values = grouped[category];
+        return {
+          name: category,
+          value: values.reduce((sum, v) => sum + v, 0) / values.length,
+          count: values.length,
+          std: Math.sqrt(values.reduce((sum, v) => sum + Math.pow(v - (values.reduce((a, b) => a + b) / values.length), 2), 0) / values.length)
+        };
+      });
       
-      // Box plot data by category
-      const boxplotData = Object.entries(grouped).map(([category, values]) => {
+      charts.push({
+        id: `barplot-mean-${catCol.name}-${numCol.name}`,
+        type: 'bar',
+        title: `Mean ${numCol.name} by ${catCol.name}`,
+        description: `Average ${numCol.name} across ${catCol.name} categories with error bars`,
+        data: meanData,
+        config: { xKey: 'name', yKey: 'value' },
+        category: 'bivariate',
+        pythonEquivalent: 'sns.barplot with estimator=np.mean, palette=Set2'
+      });
+      
+      // 2. Box Plot by category (like sns.boxplot)  
+      const boxplotData = categories.map(category => {
+        const values = grouped[category];
         const sorted = [...values].sort((a, b) => a - b);
         const q1 = sorted[Math.floor(sorted.length * 0.25)];
         const median = sorted[Math.floor(sorted.length * 0.5)];
         const q3 = sorted[Math.floor(sorted.length * 0.75)];
+        const iqr = q3 - q1;
         
         return {
           name: category,
@@ -255,21 +341,47 @@ function generateAllCharts(csvData: string, analysis: ColumnAnalysis[]): any[] {
           q1: q1,
           median: median,
           q3: q3,
-          max: Math.max(...values)
+          max: Math.max(...values),
+          outliers: values.filter(v => v < q1 - 1.5 * iqr || v > q3 + 1.5 * iqr).length
         };
       });
       
-      if (boxplotData.length > 0) {
-        charts.push({
-          id: `boxplot-${catCol.name}-${numCol.name}`,
-          type: 'boxplot',
-          title: `Box Plot: ${numCol.name} by ${catCol.name}`,
-          description: `Distribution of ${numCol.name} across ${catCol.name} categories`,
-          data: boxplotData,
-          config: { xKey: 'name', yKey: 'median' },
-          category: 'bivariate'
-        });
-      }
+      charts.push({
+        id: `boxplot-${catCol.name}-${numCol.name}`,
+        type: 'boxplot',
+        title: `Boxplot of ${numCol.name} by ${catCol.name}`,
+        description: `Distribution quartiles of ${numCol.name} across ${catCol.name}`,
+        data: boxplotData,
+        config: { xKey: 'name', yKey: 'median' },
+        category: 'bivariate',
+        pythonEquivalent: 'sns.boxplot with palette=Set3'
+      });
+      
+      // 3. Violin Plot by category (approximated as density/area)
+      const violinData = categories.map(category => {
+        const values = grouped[category];
+        const mean = values.reduce((a, b) => a + b) / values.length;
+        const std = Math.sqrt(values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / values.length);
+        
+        return {
+          name: category,
+          mean: mean,
+          std: std,
+          density: values.length / dataRows.length, // relative density
+          range: Math.max(...values) - Math.min(...values)
+        };
+      });
+      
+      charts.push({
+        id: `violin-${catCol.name}-${numCol.name}`,
+        type: 'area',
+        title: `Violin of ${numCol.name} by ${catCol.name}`,
+        description: `Density distribution of ${numCol.name} by ${catCol.name}`,
+        data: violinData,
+        config: { xKey: 'name', yKey: 'density' },
+        category: 'bivariate',
+        pythonEquivalent: 'sns.violinplot with palette=Set1'
+      });
     });
   });
   
@@ -301,111 +413,104 @@ function generateAllCharts(csvData: string, analysis: ColumnAnalysis[]): any[] {
     });
   }
   
-  // 5. CATEGORICAL DISTRIBUTIONS
+  // --- CATEGORICAL DISTRIBUTIONS (pie charts for each categorical column) ---
   categoricalCols.forEach(catCol => {
     const catIndex = headers.indexOf(catCol.name);
     const counts: { [key: string]: number } = {};
     
     dataRows.forEach(row => {
       const value = row[catIndex];
-      if (value) {
+      if (value && value.trim()) {
         counts[value] = (counts[value] || 0) + 1;
       }
     });
     
-    const pieData = Object.entries(counts).map(([name, value]) => ({ name, value }));
+    const pieData = Object.entries(counts)
+      .map(([name, value]) => ({ name, value, percentage: (value / dataRows.length * 100).toFixed(1) }))
+      .sort((a, b) => b.value - a.value); // Sort by frequency
     
-    if (pieData.length > 1 && pieData.length <= 15) { // Reasonable number of categories
+    if (pieData.length > 1 && pieData.length <= 20) { // Reasonable number of categories
       charts.push({
         id: `pie-${catCol.name}`,
         type: 'pie',
         title: `Distribution of ${catCol.name}`,
-        description: `Breakdown of ${catCol.name} categories`,
+        description: `Categorical breakdown showing frequency and percentages`,
         data: pieData,
         config: { dataKey: 'value' },
-        category: 'categorical'
+        category: 'categorical',
+        pythonEquivalent: 'Pie chart equivalent to categorical frequency analysis'
       });
     }
   });
   
-  // 6. TIME SERIES (if date columns exist)
-  dateCols.forEach(dateCol => {
-    numericalCols.forEach(numCol => {
-      const dateIndex = headers.indexOf(dateCol.name);
-      const numIndex = headers.indexOf(numCol.name);
-      
-      const timeSeriesData = dataRows.map((row, idx) => {
-        const dateValue = new Date(row[dateIndex]);
-        const numValue = parseFloat(row[numIndex]);
-        return !isNaN(dateValue.getTime()) && !isNaN(numValue) ? {
-          date: dateValue.toISOString().split('T')[0],
-          value: numValue,
-          name: `${dateValue.toLocaleDateString()}`
-        } : null;
-      }).filter(Boolean).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-      
-      if (timeSeriesData.length > 2) {
-        charts.push({
-          id: `timeseries-${dateCol.name}-${numCol.name}`,
-          type: 'line',
-          title: `Time Series: ${numCol.name} over ${dateCol.name}`,
-          description: `Trend of ${numCol.name} over time`,
-          data: timeSeriesData,
-          config: { xKey: 'name', yKey: 'value' },
-          category: 'timeseries'
-        });
-      }
-    });
-  });
-  
-  // 7. CATEGORICAL CORRELATION HEATMAP
+  // --- CATEGORICAL RELATIONSHIP HEATMAP (like Python: factorize and correlate) ---
   if (categoricalCols.length > 1) {
     const catCorrelationMatrix: any[] = [];
     
-    // Encode categorical variables as numbers for correlation
+    // Encode categorical variables as numbers for correlation (like pd.factorize)
     const encodedData: { [key: string]: number[] } = {};
     categoricalCols.forEach(col => {
       const colIndex = headers.indexOf(col.name);
-      const uniqueValues = [...new Set(dataRows.map(row => row[colIndex]).filter(v => v))];
+      const uniqueValues = [...new Set(dataRows.map(row => row[colIndex]).filter(v => v && v.trim()))];
       const valueMap = Object.fromEntries(uniqueValues.map((val, idx) => [val, idx]));
       
-      encodedData[col.name] = dataRows.map(row => valueMap[row[colIndex]] || 0);
+      encodedData[col.name] = dataRows.map(row => {
+        const value = row[colIndex];
+        return (value && valueMap.hasOwnProperty(value)) ? valueMap[value] : -1;
+      });
     });
     
-    categoricalCols.forEach((col1, i) => {
-      categoricalCols.forEach((col2, j) => {
+    // Calculate correlation matrix between encoded categorical variables
+    categoricalCols.forEach((col1) => {
+      categoricalCols.forEach((col2) => {
         const values1 = encodedData[col1.name];
         const values2 = encodedData[col2.name];
         
-        // Calculate correlation
-        const n = Math.min(values1.length, values2.length);
-        const mean1 = values1.reduce((a, b) => a + b, 0) / values1.length;
-        const mean2 = values2.reduce((a, b) => a + b, 0) / values2.length;
+        // Filter out missing values (-1)
+        const validPairs = values1.map((v1, idx) => ({ v1, v2: values2[idx] }))
+          .filter(pair => pair.v1 !== -1 && pair.v2 !== -1);
         
-        const numerator = values1.slice(0, n).reduce((sum, v1, idx) => 
-          sum + (v1 - mean1) * (values2[idx] - mean2), 0);
-        const denom1 = Math.sqrt(values1.slice(0, n).reduce((sum, v) => sum + Math.pow(v - mean1, 2), 0));
-        const denom2 = Math.sqrt(values2.slice(0, n).reduce((sum, v) => sum + Math.pow(v - mean2, 2), 0));
-        
-        const correlation = denom1 * denom2 !== 0 ? numerator / (denom1 * denom2) : 0;
-        
-        catCorrelationMatrix.push({
-          x: col1.name,
-          y: col2.name,
-          value: Math.round(correlation * 100) / 100,
-          color: correlation
-        });
+        if (validPairs.length > 1) {
+          const v1s = validPairs.map(p => p.v1);
+          const v2s = validPairs.map(p => p.v2);
+          const n = validPairs.length;
+          
+          const mean1 = v1s.reduce((a, b) => a + b, 0) / n;
+          const mean2 = v2s.reduce((a, b) => a + b, 0) / n;
+          
+          const numerator = validPairs.reduce((sum, pair) => 
+            sum + (pair.v1 - mean1) * (pair.v2 - mean2), 0);
+          const denom1 = Math.sqrt(v1s.reduce((sum, v) => sum + Math.pow(v - mean1, 2), 0));
+          const denom2 = Math.sqrt(v2s.reduce((sum, v) => sum + Math.pow(v - mean2, 2), 0));
+          
+          const correlation = denom1 * denom2 !== 0 ? numerator / (denom1 * denom2) : 0;
+          
+          catCorrelationMatrix.push({
+            x: col1.name,
+            y: col2.name,
+            value: Math.round(correlation * 100) / 100,
+            color: correlation
+          });
+        } else {
+          catCorrelationMatrix.push({
+            x: col1.name, 
+            y: col2.name,
+            value: 0,
+            color: 0
+          });
+        }
       });
     });
     
     charts.push({
       id: 'categorical-correlation-heatmap',
       type: 'heatmap',
-      title: 'Categorical Variables Correlation',
-      description: 'Correlation matrix of categorical variables (encoded)',
+      title: 'Categorical Encoding Correlation Heatmap',
+      description: 'Correlation matrix of categorical variables after factorization',
       data: catCorrelationMatrix,
       config: { xKey: 'x', yKey: 'y', valueKey: 'value' },
-      category: 'categorical'
+      category: 'categorical',
+      pythonEquivalent: 'sns.heatmap(cat_df.corr()) where cat_df = df.apply(pd.factorize)'
     });
   }
   

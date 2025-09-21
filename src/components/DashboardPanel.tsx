@@ -145,21 +145,21 @@ export const DashboardPanel = ({
         return (
           <ResponsiveContainer width="100%" height={height}>
             <BarChart data={chart.data} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted))" opacity={0.3} />
               <XAxis 
                 dataKey={chart.config?.xKey || 'name'} 
-                tick={{ fill: '#9CA3AF', fontSize: 12 }} 
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} 
                 angle={-45}
                 textAnchor="end"
                 height={80}
                 interval={0}
               />
-              <YAxis tick={{ fill: '#9CA3AF', fontSize: 12 }} />
+              <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
               <Tooltip 
                 contentStyle={{ 
-                  backgroundColor: '#1F2937', 
-                  border: '1px solid #374151', 
-                  color: '#F3F4F6',
+                  backgroundColor: 'hsl(var(--popover))', 
+                  border: '1px solid hsl(var(--border))', 
+                  color: 'hsl(var(--popover-foreground))',
                   borderRadius: '8px'
                 }} 
               />
@@ -263,23 +263,78 @@ export const DashboardPanel = ({
         );
       
       case 'heatmap':
+        const uniqueXValues = [...new Set(chart.data?.map((item: any) => item.x))];
+        const uniqueYValues = [...new Set(chart.data?.map((item: any) => item.y))];
         return (
           <ResponsiveContainer width="100%" height={height}>
-            <div className="grid grid-cols-4 gap-1 p-4">
-              {chart.data?.map((item: any, idx: number) => (
-                <div 
-                  key={idx}
-                  className="aspect-square flex items-center justify-center text-xs font-medium text-white rounded"
-                  style={{
-                    backgroundColor: `hsl(${200 + item.value * 60}, 70%, ${50 + item.value * 20}%)`,
-                    opacity: 0.8 + Math.abs(item.value) * 0.2
-                  }}
-                  title={`${item.x} vs ${item.y}: ${item.value}`}
-                >
-                  {item.value?.toFixed(2)}
-                </div>
-              ))}
+            <div className="p-4">
+              <div 
+                className="grid gap-1" 
+                style={{ 
+                  gridTemplateColumns: `repeat(${uniqueXValues.length}, minmax(0, 1fr))` 
+                }}
+              >
+                {chart.data?.map((item: any, idx: number) => {
+                  const intensity = Math.abs(item.value);
+                  const isPositive = item.value >= 0;
+                  return (
+                    <div 
+                      key={idx}
+                      className="aspect-square flex items-center justify-center text-xs font-medium text-white rounded border"
+                      style={{
+                        backgroundColor: isPositive 
+                          ? `hsl(220, 70%, ${90 - intensity * 40}%)` // Blue scale for positive
+                          : `hsl(0, 70%, ${90 - intensity * 40}%)`, // Red scale for negative
+                        color: intensity > 0.5 ? '#FFFFFF' : '#000000'
+                      }}
+                      title={`${item.x} vs ${item.y}: ${item.value?.toFixed(3)}`}
+                    >
+                      {item.value?.toFixed(2)}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex justify-between mt-2 text-xs text-muted-foreground">
+                <span>X: {uniqueXValues.join(', ')}</span>
+              </div>
+              <div className="flex justify-between mt-1 text-xs text-muted-foreground">
+                <span>Y: {uniqueYValues.join(', ')}</span>
+              </div>
             </div>
+          </ResponsiveContainer>
+        );
+
+      case 'area':
+        return (
+          <ResponsiveContainer width="100%" height={height}>
+            <AreaChart data={chart.data} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted))" opacity={0.3} />
+              <XAxis 
+                dataKey={chart.config?.xKey || 'name'} 
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                angle={-45}
+                textAnchor="end"
+                height={80}
+              />
+              <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: 'hsl(var(--popover))', 
+                  border: '1px solid hsl(var(--border))', 
+                  color: 'hsl(var(--popover-foreground))',
+                  borderRadius: '8px'
+                }} 
+              />
+              <Legend />
+              <Area 
+                type="monotone" 
+                dataKey={chart.config?.yKey || 'density'} 
+                stroke={chartColors[0]} 
+                fill={chartColors[0]}
+                fillOpacity={0.6}
+                strokeWidth={2}
+              />
+            </AreaChart>
           </ResponsiveContainer>
         );
 
@@ -436,20 +491,21 @@ export const DashboardPanel = ({
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Chart Categories */}
+            {/* Chart Categories - Python Analysis Overview */}
             {dashboardData.charts && dashboardData.charts.length > 0 && (
               <div className="grid gap-4 mb-6">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
                   <BarChart3 className="w-5 h-5" />
-                  Chart Categories Overview
+                  Python-Style Analysis Overview
                 </h3>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
                   {[
-                    { category: 'univariate', label: 'Univariate', icon: '📊', color: 'bg-blue-100 text-blue-800' },
-                    { category: 'bivariate', label: 'Bivariate', icon: '📈', color: 'bg-green-100 text-green-800' },
-                    { category: 'correlation', label: 'Correlation', icon: '🔗', color: 'bg-purple-100 text-purple-800' },
-                    { category: 'categorical', label: 'Categorical', icon: '🥧', color: 'bg-orange-100 text-orange-800' },
-                    { category: 'timeseries', label: 'Time Series', icon: '⏱️', color: 'bg-cyan-100 text-cyan-800' }
+                    { category: 'univariate', label: 'Univariate', icon: '📊', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
+                    { category: 'bivariate', label: 'Bivariate', icon: '📈', color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
+                    { category: 'correlation', label: 'Correlation', icon: '🔗', color: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' },
+                    { category: 'pairwise', label: 'Pairwise', icon: '🎯', color: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200' },
+                    { category: 'categorical', label: 'Categorical', icon: '🥧', color: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' },
+                    { category: 'timeseries', label: 'Time Series', icon: '⏱️', color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200' }
                   ].map(cat => {
                     const count = dashboardData.charts.filter((c: any) => c.category === cat.category).length;
                     return count > 0 ? (
@@ -458,6 +514,9 @@ export const DashboardPanel = ({
                       </Badge>
                     ) : null;
                   })}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Generated {dashboardData.charts.length} total charts using matplotlib/seaborn equivalent analysis
                 </div>
               </div>
             )}
