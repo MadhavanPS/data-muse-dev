@@ -91,15 +91,15 @@ export const DataVisualizationTab = ({ className = '' }: DataVisualizationTabPro
         </div>
         
         {/* Action Buttons - Second Row */}
-        <div className="grid grid-cols-4 gap-2">
+        <div className="flex gap-4">
           {chartTypes.slice(4).map((chart) => {
             const Icon = chart.icon;
+            const label = chart.id === 'time' ? 'Time Series' : 
+                         chart.id === 'ai' ? 'AI Sugg' : chart.label;
             return (
-              <Button
+              <button
                 key={chart.id}
-                variant="ghost"
-                size="sm"
-                className="h-8 text-xs justify-start gap-2 text-muted-foreground hover:text-foreground"
+                className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors text-sm"
                 onClick={() => {
                   if (chart.id === 'refresh') {
                     // Handle refresh
@@ -112,8 +112,8 @@ export const DataVisualizationTab = ({ className = '' }: DataVisualizationTabPro
                 title={chart.label}
               >
                 <Icon className="w-4 h-4" />
-                {chart.label}
-              </Button>
+                {label}
+              </button>
             );
           })}
         </div>
