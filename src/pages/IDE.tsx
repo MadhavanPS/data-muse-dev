@@ -365,7 +365,11 @@ const IDE = () => {
 
           {/* Panel Area */}
           <div className={`${activePanel === 'explorer' ? 'w-fit' : 'w-80'} border-r border-panel-border bg-panel-background`}>
-            {activePanel === 'visualization' ? (
+            {activePanel === 'dashboard' ? (
+              <DashboardPanel 
+                onToggleFullscreen={() => setIsDashboardFullscreen(!isDashboardFullscreen)}
+              />
+            ) : activePanel === 'visualization' ? (
               <VisualizationPanel 
                 isFullscreen={isVizFullscreen}
                 onToggleFullscreen={() => setIsVizFullscreen(!isVizFullscreen)}
