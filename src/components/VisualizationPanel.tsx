@@ -63,27 +63,46 @@ export const VisualizationPanel = ({ isFullscreen = false, onToggleFullscreen }:
                     key={chart.id}
                     variant="ghost"
                     size="sm"
-                    className={`w-8 h-8 p-0 ${
-                      activeChart === chart.id ? 'bg-primary text-primary-foreground' : ''
+                    className={`w-8 h-8 p-0 transition-all duration-200 hover:scale-105 hover:bg-primary/10 ${
+                      activeChart === chart.id 
+                        ? 'bg-primary text-primary-foreground shadow-md scale-105' 
+                        : 'hover:shadow-lg'
                     }`}
                     onClick={() => setActiveChart(chart.id)}
                     title={chart.label}
                   >
-                    <Icon className="w-4 h-4" />
+                    <Icon className={`w-4 h-4 transition-transform duration-200 ${
+                      activeChart === chart.id ? 'scale-110' : 'hover:scale-110'
+                    }`} />
                   </Button>
                 );
               })}
             </div>
 
             {/* Actions */}
-            <Button variant="ghost" size="sm" className="w-8 h-8 p-0" title="Refresh">
-              <RefreshCw className="w-4 h-4" />
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="w-8 h-8 p-0 transition-all duration-200 hover:scale-105 hover:bg-accent hover:shadow-lg" 
+              title="Refresh"
+            >
+              <RefreshCw className="w-4 h-4 transition-transform duration-200 hover:rotate-180" />
             </Button>
-            <Button variant="ghost" size="sm" className="w-8 h-8 p-0" title="Download">
-              <Download className="w-4 h-4" />
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="w-8 h-8 p-0 transition-all duration-200 hover:scale-105 hover:bg-accent hover:shadow-lg" 
+              title="Download"
+            >
+              <Download className="w-4 h-4 transition-transform duration-200 hover:scale-110" />
             </Button>
-            <Button variant="ghost" size="sm" className="w-8 h-8 p-0" title="Settings">
-              <Settings className="w-4 h-4" />
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="w-8 h-8 p-0 transition-all duration-200 hover:scale-105 hover:bg-accent hover:shadow-lg" 
+              title="Settings"
+            >
+              <Settings className="w-4 h-4 transition-transform duration-200 hover:rotate-90" />
             </Button>
             {onToggleFullscreen && (
               <Button 

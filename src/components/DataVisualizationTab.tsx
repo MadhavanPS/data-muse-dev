@@ -29,10 +29,6 @@ export const DataVisualizationTab = ({ className = '' }: DataVisualizationTabPro
     { id: 'line', icon: LineChart, label: 'Line Chart' },
     { id: 'pie', icon: PieChart, label: 'Pie Chart' },
     { id: 'trend', icon: TrendingUp, label: 'Trend' },
-    { id: 'time', icon: Clock, label: 'Time Series' },
-    { id: 'refresh', icon: RefreshCw, label: 'Refresh' },
-    { id: 'download', icon: Download, label: 'Download' },
-    { id: 'ai', icon: Sparkles, label: 'AI Suggest' },
   ];
 
   // Get CSV data from currently open tabs (EditorContext)
@@ -68,55 +64,29 @@ export const DataVisualizationTab = ({ className = '' }: DataVisualizationTabPro
         </button>
       </div>
 
-      {/* Chart Type Buttons - First Row */}
+      {/* Chart Type Buttons */}
       <div className="p-3 border-b border-panel-border">
-        <div className="grid grid-cols-4 gap-2 mb-3">
-          {chartTypes.slice(0, 4).map((chart) => {
+        <div className="grid grid-cols-4 gap-2">
+          {chartTypes.map((chart) => {
             const Icon = chart.icon;
             return (
               <Button
                 key={chart.id}
                 variant="outline"
                 size="sm"
-                className={`h-10 text-xs flex-col gap-1 ${
+                className={`h-12 text-xs flex-col gap-1 transition-all duration-200 hover:scale-105 hover:shadow-lg ${
                   selectedChart === chart.id 
-                    ? 'bg-primary text-primary-foreground border-primary' 
-                    : 'bg-card hover:bg-accent'
+                    ? 'bg-primary text-primary-foreground border-primary scale-105 shadow-md' 
+                    : 'bg-card hover:bg-accent border-border'
                 }`}
                 onClick={() => setSelectedChart(chart.id)}
                 title={chart.label}
               >
-                <Icon className="w-4 h-4" />
+                <Icon className={`w-4 h-4 transition-transform duration-200 ${
+                  selectedChart === chart.id ? 'scale-110' : 'hover:scale-110'
+                }`} />
                 <span className="text-[10px]">{chart.label}</span>
               </Button>
-            );
-          })}
-        </div>
-        
-        {/* Action Buttons - Second Row */}
-        <div className="flex gap-4">
-          {chartTypes.slice(4).map((chart) => {
-            const Icon = chart.icon;
-            const label = chart.id === 'time' ? 'Time Series' : 
-                         chart.id === 'ai' ? 'AI Sugg' : chart.label;
-            return (
-              <button
-                key={chart.id}
-                className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors text-sm"
-                onClick={() => {
-                  if (chart.id === 'refresh') {
-                    // Handle refresh
-                  } else if (chart.id === 'download') {
-                    // Handle download
-                  } else if (chart.id === 'ai') {
-                    // Handle AI suggestions
-                  }
-                }}
-                title={chart.label}
-              >
-                <Icon className="w-4 h-4" />
-                {label}
-              </button>
             );
           })}
         </div>
