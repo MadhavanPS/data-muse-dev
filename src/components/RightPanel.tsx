@@ -16,6 +16,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useEditor } from '@/contexts/EditorContext';
 import { CodeApprovalDialog } from '@/components/CodeApprovalDialog';
+import { CodeContextCard } from '@/components/CodeContextCard';
+import { DiffViewer } from '@/components/DiffViewer';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -29,11 +31,13 @@ interface Message {
 interface RightPanelProps {
   onFileUpload: (originalFile: string, originalContent: string, cleanedFile: string, cleanedContent: string) => void;
   onCodeUpdate: (newContent: string) => void;
+  selectedCodeContext?: string;
+  onClearCodeContext?: () => void;
 }
 
 import { cleanDataset } from '@/utils/csvProcessing';
 
-export const RightPanel = ({ onFileUpload, onCodeUpdate }: RightPanelProps) => {
+export const RightPanel = ({ onFileUpload, onCodeUpdate, selectedCodeContext, onClearCodeContext }: RightPanelProps) => {
   const { toast } = useToast();
   const { activeTab, getActiveContent, getAllFilesContent, selectedText } = useEditor();
   const [message, setMessage] = useState('');
@@ -56,11 +60,13 @@ export const RightPanel = ({ onFileUpload, onCodeUpdate }: RightPanelProps) => {
     generatedCode: string;
     requestType: string;
     originalCode?: string;
+    showDiff?: boolean;
   }>({
     isOpen: false,
     generatedCode: '',
     requestType: '',
-    originalCode: ''
+    originalCode: '',
+    showDiff: false
   });
 
   // CSV Processing Function
@@ -129,13 +135,14 @@ export const RightPanel = ({ onFileUpload, onCodeUpdate }: RightPanelProps) => {
       if (error) throw error;
       
       if (data.success) {
-        // If it's code generation/refactoring, show approval dialog
+        // If it's code generation/refactoring, show approval dialog with diff
         if (requestType === 'code_generation' || requestType === 'code_refactor') {
           setApprovalDialog({
             isOpen: true,
             generatedCode: data.content,
             requestType: data.requestType,
-            originalCode: requestType === 'code_refactor' ? selectedText || currentContent : undefined
+            originalCode: requestType === 'code_refactor' ? selectedText || currentContent : undefined,
+            showDiff: true
           });
         } else {
           // For other requests, just show the response
@@ -230,7 +237,7 @@ export const RightPanel = ({ onFileUpload, onCodeUpdate }: RightPanelProps) => {
       });
     }
     
-    setApprovalDialog({ isOpen: false, generatedCode: '', requestType: '', originalCode: '' });
+    setApprovalDialog({ isOpen: false, generatedCode: '', requestType: '', originalCode: '', showDiff: false });
   };
   
   const handleRejectCode = () => {
@@ -242,11 +249,11 @@ export const RightPanel = ({ onFileUpload, onCodeUpdate }: RightPanelProps) => {
     };
     setMessages(prev => [...prev, rejectMsg]);
     
-    setApprovalDialog({ isOpen: false, generatedCode: '', requestType: '', originalCode: '' });
+    setApprovalDialog({ isOpen: false, generatedCode: '', requestType: '', originalCode: '', showDiff: false });
   };
   
   const closeApprovalDialog = () => {
-    setApprovalDialog({ isOpen: false, generatedCode: '', requestType: '', originalCode: '' });
+    setApprovalDialog({ isOpen: false, generatedCode: '', requestType: '', originalCode: '', showDiff: false });
   };
 
   return (
@@ -299,10 +306,21 @@ export const RightPanel = ({ onFileUpload, onCodeUpdate }: RightPanelProps) => {
             </div>
           </ScrollArea>
 
+          {/* Selected Code Context */}
+          {selectedCodeContext && (
+            <div className="mb-3">
+              <CodeContextCard
+                selectedCode={selectedCodeContext}
+                fileName={activeTab?.name}
+                onRemove={onClearCodeContext || (() => {})}
+              />
+            </div>
+          )}
+
           {/* Message Input */}
           <div className="space-y-2">
             <Textarea
-              placeholder={selectedText 
+              placeholder={selectedCodeContext || selectedText 
                 ? "I can see you've selected some code. Ask me to refactor it, generate similar code, or explain it..."
                 : "Ask me to generate code, clean data, or create visualizations..."
               }
@@ -316,7 +334,7 @@ export const RightPanel = ({ onFileUpload, onCodeUpdate }: RightPanelProps) => {
               }}
               className="min-h-[80px] bg-input border-border text-sm resize-none"
             />
-            {selectedText && (
+            {selectedText && !selectedCodeContext && (
               <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
                 <Code className="w-3 h-3 inline mr-1" />
                 Selected: {selectedText.substring(0, 50)}{selectedText.length > 50 ? '...' : ''}
@@ -356,9 +374,24 @@ export const RightPanel = ({ onFileUpload, onCodeUpdate }: RightPanelProps) => {
         </CardContent>
       </Card>
 
-      {/* Code Approval Dialog */}
+      {/* Code Approval with Diff Viewer */}
+      {approvalDialog.isOpen && approvalDialog.showDiff && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="w-full max-w-5xl max-h-[90vh] overflow-auto">
+            <DiffViewer
+              originalCode={approvalDialog.originalCode || ''}
+              newCode={approvalDialog.generatedCode}
+              onApprove={handleApproveCode}
+              onReject={handleRejectCode}
+              title={`${approvalDialog.requestType === 'code_refactor' ? 'Code Refactoring' : 'Generated Code'} Preview`}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Fallback Code Approval Dialog */}
       <CodeApprovalDialog
-        isOpen={approvalDialog.isOpen}
+        isOpen={approvalDialog.isOpen && !approvalDialog.showDiff}
         onClose={closeApprovalDialog}
         onApprove={handleApproveCode}
         onReject={handleRejectCode}

@@ -24,6 +24,7 @@ const IDE = () => {
   const [fileContents, setFileContents] = useState<Record<string, string>>({
     '1': ''
   });
+  const [selectedCodeContext, setSelectedCodeContext] = useState<string>('');
 
   // File system structure for explorer
   const [fileSystemItems, setFileSystemItems] = useState<FileSystemItem[]>([
@@ -262,6 +263,14 @@ const IDE = () => {
     ]);
   };
 
+  const handleSendToAssistant = (selectedCode: string) => {
+    setSelectedCodeContext(selectedCode);
+  };
+
+  const handleClearCodeContext = () => {
+    setSelectedCodeContext('');
+  };
+
   return (
     <EditorProvider tabs={tabs} fileContents={fileContents}>
       <div className="h-screen bg-background text-foreground flex flex-col">
@@ -303,6 +312,7 @@ const IDE = () => {
                 onChange={handleContentChange}
                 onSave={handleSave}
                 onRun={handleRun}
+                onSendToAssistant={handleSendToAssistant}
               />
             )}
           </div>
@@ -311,6 +321,8 @@ const IDE = () => {
           <RightPanel 
             onFileUpload={handleFileUpload}
             onCodeUpdate={handleCodeUpdate}
+            selectedCodeContext={selectedCodeContext}
+            onClearCodeContext={handleClearCodeContext}
           />
         </div>
 

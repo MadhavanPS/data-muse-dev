@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { Play, Save, Undo, Redo, Copy, Search } from 'lucide-react';
+import React, { useState, useRef, useCallback } from 'react';
+import { Play, Save, Undo, Redo, Copy, Search, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { useEditor } from '@/contexts/EditorContext';
 
 interface CodeEditorProps {
   activeFile?: string;
@@ -10,6 +11,7 @@ interface CodeEditorProps {
   onChange: (content: string) => void;
   onRun?: () => void;
   onSave?: () => void;
+  onSendToAssistant?: (selectedCode: string) => void;
 }
 
 export const CodeEditor = ({ 
@@ -18,15 +20,62 @@ export const CodeEditor = ({
   content, 
   onChange, 
   onRun, 
-  onSave 
+  onSave,
+  onSendToAssistant 
 }: CodeEditorProps) => {
   const [lineNumbers, setLineNumbers] = useState<number[]>([]);
+  const [showSendButton, setShowSendButton] = useState(false);
+  const [buttonPosition, setButtonPosition] = useState({ x: 0, y: 0 });
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { setSelectedText } = useEditor();
   
   // Update line numbers when content changes
   React.useEffect(() => {
     const lines = content.split('\n').length;
     setLineNumbers(Array.from({ length: lines }, (_, i) => i + 1));
   }, [content]);
+
+  const handleTextSelection = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const selectedText = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
+    
+    if (selectedText.trim()) {
+      // Calculate button position relative to the selection
+      const rect = textarea.getBoundingClientRect();
+      const { selectionStart, selectionEnd } = textarea;
+      
+      // Approximate position based on character position
+      const beforeText = textarea.value.substring(0, selectionStart);
+      const lines = beforeText.split('\n');
+      const currentLine = lines.length - 1;
+      const currentCol = lines[lines.length - 1].length;
+      
+      // Position the button near the selection
+      setButtonPosition({
+        x: rect.left + Math.min(currentCol * 8, rect.width - 150), // Approximate character width
+        y: rect.top + (currentLine * 24) - 40 // Line height approximation
+      });
+      
+      setShowSendButton(true);
+      setSelectedText(selectedText);
+    } else {
+      setShowSendButton(false);
+      setSelectedText('');
+    }
+  }, [setSelectedText]);
+
+  const handleSendToAssistant = () => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const selectedText = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
+    if (selectedText.trim() && onSendToAssistant) {
+      onSendToAssistant(selectedText);
+      setShowSendButton(false);
+    }
+  };
 
   const getLanguageLabel = () => {
     switch(language) {
@@ -157,8 +206,11 @@ def analyze_data(df):
         {/* Code Area */}
         <div className="flex-1 relative">
           <Textarea
+            ref={textareaRef}
             value={content || getSampleContent()}
             onChange={(e) => onChange(e.target.value)}
+            onSelect={handleTextSelection}
+            onMouseUp={handleTextSelection}
             className="editor-area w-full h-full border-0 rounded-none resize-none focus:ring-0 text-sm leading-6 p-4"
             style={{ 
               fontFamily: 'var(--font-mono)',
@@ -167,6 +219,26 @@ def analyze_data(df):
             }}
             placeholder={`Start writing ${getLanguageLabel()} code...`}
           />
+          
+          {/* Send to Assistant Button */}
+          {showSendButton && (
+            <div 
+              className="absolute z-10 animate-fade-in"
+              style={{
+                left: `${Math.max(10, Math.min(buttonPosition.x - 70, 300))}px`,
+                top: `${Math.max(10, buttonPosition.y)}px`
+              }}
+            >
+              <Button
+                size="sm"
+                onClick={handleSendToAssistant}
+                className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg border border-blue-500"
+              >
+                <MessageSquare className="w-3 h-3 mr-1" />
+                Send to Assistant
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
