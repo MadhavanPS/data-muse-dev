@@ -74,7 +74,7 @@ export const LeftSidebar = ({
                 }`}
                 onClick={() => {
                   if (item.id === 'dashboard') {
-                    window.open('https://lovable.dev/projects/7c7efe19-2f93-47cd-a641-3fd37c125616', '_blank');
+                    window.open('https://lovable.dev/projects/be2eea4a-21c4-471a-ba46-9435884e22a0', '_blank');
                   } else {
                     onPanelChange(item.id);
                   }
