@@ -72,7 +72,13 @@ export const LeftSidebar = ({
                     ? 'bg-sidebar-active text-primary'
                     : 'text-sidebar-foreground hover:text-foreground'
                 }`}
-                onClick={() => onPanelChange(item.id)}
+                onClick={() => {
+                  if (item.id === 'dashboard') {
+                    window.open('https://lovable.dev/projects/7c7efe19-2f93-47cd-a641-3fd37c125616', '_blank');
+                  } else {
+                    onPanelChange(item.id);
+                  }
+                }}
                 title={item.tooltip}
               >
                 <Icon className="w-5 h-5" />
