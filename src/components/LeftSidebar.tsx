@@ -7,7 +7,8 @@ import {
   Settings, 
   GitBranch, 
   Terminal,
-  Layers
+  Layers,
+  LayoutDashboard
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FileExplorer } from '@/components/FileExplorer';
@@ -36,6 +37,7 @@ export const LeftSidebar = ({
 }: LeftSidebarProps) => {
   const sidebarItems = [
     { id: 'explorer', icon: Files, label: 'Explorer', tooltip: 'File Explorer' },
+    { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', tooltip: 'Data Dashboard' },
     { id: 'search', icon: Search, label: 'Search', tooltip: 'Search & Replace' },
     { id: 'database', icon: Database, label: 'Database', tooltip: 'Database Connections' },
     { id: 'visualization', icon: BarChart3, label: 'Charts', tooltip: 'Data Visualization' },

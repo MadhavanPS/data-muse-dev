@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FileTabs, FileTab } from '@/components/FileTabs';
 import { LeftSidebar } from '@/components/LeftSidebar';
 import { VisualizationPanel } from '@/components/VisualizationPanel';
+import { DashboardPanel } from '@/components/DashboardPanel';
 import { RightPanel } from '@/components/RightPanel';
 import { CodeEditor } from '@/components/CodeEditor';
 import { EditorProvider } from '@/contexts/EditorContext';
@@ -360,12 +361,16 @@ const IDE = () => {
             onToggleCollapse={() => setIsSidebarCollapsed(true)}
           />
 
-          {/* Visualization Panel */}
+          {/* Panel Area */}
           <div className="w-80 border-r border-panel-border bg-panel-background">
-            <VisualizationPanel 
-              isFullscreen={isVizFullscreen}
-              onToggleFullscreen={() => setIsVizFullscreen(!isVizFullscreen)}
-            />
+            {activePanel === 'dashboard' ? (
+              <DashboardPanel />
+            ) : activePanel === 'visualization' ? (
+              <VisualizationPanel 
+                isFullscreen={isVizFullscreen}
+                onToggleFullscreen={() => setIsVizFullscreen(!isVizFullscreen)}
+              />
+            ) : null}
           </div>
 
           {/* Main Editor Area */}
