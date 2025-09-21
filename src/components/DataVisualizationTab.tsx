@@ -7,12 +7,16 @@ import {
   Clock,
   RefreshCw,
   Download,
-  Sparkles
+  Sparkles,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useEditor } from '@/contexts/EditorContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { DataVisualization } from '@/components/DataVisualization';
 
 interface DataVisualizationTabProps {
   className?: string;
@@ -20,8 +24,9 @@ interface DataVisualizationTabProps {
 
 export const DataVisualizationTab = ({ className = '' }: DataVisualizationTabProps) => {
   const [activeTab, setActiveTab] = useState('visualization');
-  const [prompt, setPrompt] = useState('');
   const [selectedChart, setSelectedChart] = useState('bar');
+  const { toast } = useToast();
+  const { fileContents, getAllFilesContent } = useEditor();
   
   const chartTypes = [
     { id: 'bar', icon: BarChart3, label: 'Bar Chart' },
@@ -34,9 +39,26 @@ export const DataVisualizationTab = ({ className = '' }: DataVisualizationTabPro
     { id: 'ai', icon: Sparkles, label: 'AI Suggest' },
   ];
 
-  const handleGenerateVisualization = () => {
-    // TODO: Implement visualization generation
-    console.log('Generating visualization:', prompt, selectedChart);
+  // Get CSV data from current files
+  const getCsvData = () => {
+    const allFiles = getAllFilesContent();
+    
+    // Find CSV files
+    const csvFiles = Object.entries(allFiles).filter(([filename, fileData]) => 
+      filename.toLowerCase().endsWith('.csv')
+    );
+    
+    if (csvFiles.length > 0) {
+      const [filename, fileData] = csvFiles[0];
+      // Handle different file data structures
+      const content = typeof fileData === 'string' ? fileData : fileData?.content || '';
+      return {
+        content,
+        filename
+      };
+    }
+    
+    return null;
   };
 
   return (
@@ -119,41 +141,39 @@ export const DataVisualizationTab = ({ className = '' }: DataVisualizationTabPro
         </div>
       </div>
 
-      {/* Prompt Input */}
-      <div className="p-3 border-b border-panel-border">
-        <Textarea
-          placeholder="Describe what you want to visualize (e.g., 'Show sales by month as a bar chart')"
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          className="min-h-[80px] resize-none bg-background border-input text-foreground placeholder:text-muted-foreground"
-        />
-        <Button 
-          className="w-full mt-3"
-          onClick={handleGenerateVisualization}
-          disabled={!prompt.trim()}
-        >
-          Generate Visualization
-        </Button>
-      </div>
-
       {/* Visualization Area */}
       <div className="flex-1 p-4">
-        <Card className="h-full bg-card border-border">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg font-semibold">Data Visualization</CardTitle>
-          </CardHeader>
-          <CardContent className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <div className="w-24 h-24 mx-auto mb-4 bg-muted rounded-lg flex items-center justify-center">
-                <BarChart3 className="w-12 h-12 text-muted-foreground" />
-              </div>
-              <h3 className="text-lg font-medium mb-2 text-foreground">No Visualization</h3>
-              <p className="text-sm text-muted-foreground">
-                Generate a chart from your CSV data
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        {(() => {
+          const csvData = getCsvData();
+          
+          if (!csvData) {
+            return (
+              <Card className="h-full bg-card border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg font-semibold">Data Visualization</CardTitle>
+                </CardHeader>
+                <CardContent className="flex-1 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="w-24 h-24 mx-auto mb-4 bg-muted rounded-lg flex items-center justify-center">
+                      <BarChart3 className="w-12 h-12 text-muted-foreground" />
+                    </div>
+                    <h3 className="text-lg font-medium mb-2 text-foreground">No CSV Data</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Open a CSV file to generate visualizations
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          }
+          
+          return (
+            <DataVisualization 
+              csvData={csvData.content}
+              fileName={csvData.filename}
+            />
+          );
+        })()}
       </div>
     </div>
   );
