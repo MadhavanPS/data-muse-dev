@@ -100,7 +100,7 @@ export const VisualizationPanel = ({ isFullscreen = false, onToggleFullscreen }:
         </div>
       </CardHeader>
       
-      <CardContent className="p-4 h-full">
+      <CardContent className="p-4 flex-1 overflow-y-auto min-h-0">
         <DataVisualization 
           csvData={currentCsvData?.content}
           fileName={currentCsvData?.fileName}

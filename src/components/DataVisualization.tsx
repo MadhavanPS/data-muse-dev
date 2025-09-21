@@ -292,7 +292,7 @@ export const DataVisualization = ({ csvData, fileName }: DataVisualizationProps)
             )}
           </div>
         </CardHeader>
-        <CardContent className="flex-1 min-h-0 bg-gray-700">
+        <CardContent className="flex-1 min-h-0 bg-gray-700 overflow-y-auto">
           {renderChart()}
         </CardContent>
       </Card>

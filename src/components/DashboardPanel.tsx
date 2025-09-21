@@ -1,24 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  BarChart, 
-  Bar, 
-  LineChart, 
-  Line, 
-  PieChart, 
-  Pie, 
-  Cell,
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  Legend, 
-  ResponsiveContainer,
-  ScatterChart,
-  Scatter,
-  AreaChart,
-  Area,
-  ComposedChart
-} from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -136,243 +116,89 @@ export const DashboardPanel = ({
     }
   };
 
-  const renderChart = (chart: any, index: number) => {
-    const chartColors = COLORS.slice(0, Math.max(chart.data?.length || 1, 8));
+  // Render matplotlib/seaborn style charts without recharts conversion
+  const renderMatplotlibChart = (chart: any, index: number) => {
     const height = isFullscreen ? 400 : 300;
     
-    switch (chart.type) {
-      case 'bar':
-        return (
-          <ResponsiveContainer width="100%" height={height}>
-            <BarChart data={chart.data} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted))" opacity={0.3} />
-              <XAxis 
-                dataKey={chart.config?.xKey || 'name'} 
-                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} 
-                angle={-45}
-                textAnchor="end"
-                height={80}
-                interval={0}
-              />
-              <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: 'hsl(var(--popover))', 
-                  border: '1px solid hsl(var(--border))', 
-                  color: 'hsl(var(--popover-foreground))',
-                  borderRadius: '8px'
-                }} 
-              />
-              <Legend />
-              <Bar dataKey={chart.config?.yKey || 'value'} fill={chartColors[0]} radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        );
-      
-      case 'pie':
-        return (
-          <ResponsiveContainer width="100%" height={height}>
-            <PieChart>
-              <Pie
-                data={chart.data}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percent, value }) => `${name}: ${value} (${(percent * 100).toFixed(1)}%)`}
-                outerRadius={isFullscreen ? 120 : 80}
-                fill="#8884d8"
-                dataKey={chart.config?.dataKey || 'value'}
-              >
-                {chart.data?.map((entry: any, index: number) => (
-                  <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
-                ))}
-              </Pie>
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: '#1F2937', 
-                  border: '1px solid #374151', 
-                  color: '#F3F4F6',
-                  borderRadius: '8px'
-                }} 
-              />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        );
-      
-      case 'scatter':
-        return (
-          <ResponsiveContainer width="100%" height={height}>
-            <ScatterChart data={chart.data} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
-              <XAxis 
-                dataKey={chart.config?.xKey || 'x'} 
-                tick={{ fill: '#9CA3AF', fontSize: 12 }}
-                type="number"
-              />
-              <YAxis 
-                dataKey={chart.config?.yKey || 'y'} 
-                tick={{ fill: '#9CA3AF', fontSize: 12 }}
-                type="number"
-              />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: '#1F2937', 
-                  border: '1px solid #374151', 
-                  color: '#F3F4F6',
-                  borderRadius: '8px'
-                }} 
-              />
-              <Scatter dataKey={chart.config?.yKey || 'y'} fill={chartColors[0]} />
-            </ScatterChart>
-          </ResponsiveContainer>
-        );
-      
-      case 'line':
-        return (
-          <ResponsiveContainer width="100%" height={height}>
-            <LineChart data={chart.data} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
-              <XAxis 
-                dataKey={chart.config?.xKey || 'name'} 
-                tick={{ fill: '#9CA3AF', fontSize: 12 }}
-                angle={-45}
-                textAnchor="end"
-                height={80}
-              />
-              <YAxis tick={{ fill: '#9CA3AF', fontSize: 12 }} />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: '#1F2937', 
-                  border: '1px solid #374151', 
-                  color: '#F3F4F6',
-                  borderRadius: '8px'
-                }} 
-              />
-              <Legend />
-              <Line 
-                type="monotone" 
-                dataKey={chart.config?.yKey || 'value'} 
-                stroke={chartColors[0]} 
-                strokeWidth={3}
-                dot={{ fill: chartColors[0], strokeWidth: 2, r: 5 }}
-                activeDot={{ r: 7 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        );
-      
-      case 'heatmap':
-        const uniqueXValues = [...new Set(chart.data?.map((item: any) => item.x))];
-        const uniqueYValues = [...new Set(chart.data?.map((item: any) => item.y))];
-        return (
-          <ResponsiveContainer width="100%" height={height}>
-            <div className="p-4">
-              <div 
-                className="grid gap-1" 
-                style={{ 
-                  gridTemplateColumns: `repeat(${uniqueXValues.length}, minmax(0, 1fr))` 
-                }}
-              >
-                {chart.data?.map((item: any, idx: number) => {
-                  const intensity = Math.abs(item.value);
-                  const isPositive = item.value >= 0;
-                  return (
-                    <div 
-                      key={idx}
-                      className="aspect-square flex items-center justify-center text-xs font-medium text-white rounded border"
-                      style={{
-                        backgroundColor: isPositive 
-                          ? `hsl(220, 70%, ${90 - intensity * 40}%)` // Blue scale for positive
-                          : `hsl(0, 70%, ${90 - intensity * 40}%)`, // Red scale for negative
-                        color: intensity > 0.5 ? '#FFFFFF' : '#000000'
-                      }}
-                      title={`${item.x} vs ${item.y}: ${item.value?.toFixed(3)}`}
-                    >
-                      {item.value?.toFixed(2)}
+    return (
+      <div className="bg-white p-4 border" style={{ height: `${height}px` }}>
+        <div className="h-full flex flex-col">
+          {/* Chart Title - matplotlib style */}
+          <div className="text-center mb-2">
+            <h3 className="text-sm font-medium text-gray-800">
+              {chart.title}
+            </h3>
+          </div>
+          
+          {/* Chart Content Area */}
+          <div className="flex-1 flex items-center justify-center bg-gray-50 border">
+            <div className="text-center p-4">
+              <div className="text-xs text-gray-600 mb-2">
+                <strong>Chart Type:</strong> {chart.pythonEquivalent || chart.type}
+              </div>
+              
+              {/* Display chart data in matplotlib style */}
+              {chart.type === 'heatmap' ? (
+                <div className="grid gap-1 text-xs" style={{ 
+                  gridTemplateColumns: `repeat(${Math.min(chart.data?.length || 1, 8)}, 1fr)`,
+                  maxWidth: '300px'
+                }}>
+                  {chart.data?.slice(0, 64).map((item: any, idx: number) => {
+                    const value = typeof item.value === 'number' ? item.value : 0;
+                    const intensity = Math.abs(value);
+                    return (
+                      <div 
+                        key={idx}
+                        className="w-6 h-6 flex items-center justify-center text-white text-xs border"
+                        style={{
+                          backgroundColor: value >= 0 
+                            ? `rgb(${Math.floor(255 - intensity * 200)}, ${Math.floor(255 - intensity * 100)}, 255)` 
+                            : `rgb(255, ${Math.floor(255 - intensity * 100)}, ${Math.floor(255 - intensity * 200)})`,
+                          color: intensity > 0.5 ? '#fff' : '#000'
+                        }}
+                        title={`${item.x} vs ${item.y}: ${value.toFixed(3)}`}
+                      >
+                        {value.toFixed(1)}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="text-xs text-gray-500">
+                    <strong>Data Points:</strong> {chart.data?.length || 0}
+                  </div>
+                  
+                  {/* Show sample data */}
+                  {chart.data?.slice(0, 5).map((item: any, idx: number) => (
+                    <div key={idx} className="text-xs text-gray-700 bg-gray-100 p-1 rounded">
+                      {Object.entries(item).map(([key, value]) => (
+                        <span key={key} className="mr-2">
+                          {key}: {typeof value === 'number' ? value.toFixed(2) : String(value)}
+                        </span>
+                      ))}
                     </div>
-                  );
-                })}
-              </div>
-              <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-                <span>X: {uniqueXValues.join(', ')}</span>
-              </div>
-              <div className="flex justify-between mt-1 text-xs text-muted-foreground">
-                <span>Y: {uniqueYValues.join(', ')}</span>
-              </div>
+                  ))}
+                </div>
+              )}
+              
+              {chart.description && (
+                <div className="text-xs text-gray-500 mt-2 italic">
+                  {chart.description}
+                </div>
+              )}
             </div>
-          </ResponsiveContainer>
-        );
-
-      case 'area':
-        return (
-          <ResponsiveContainer width="100%" height={height}>
-            <AreaChart data={chart.data} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted))" opacity={0.3} />
-              <XAxis 
-                dataKey={chart.config?.xKey || 'name'} 
-                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                angle={-45}
-                textAnchor="end"
-                height={80}
-              />
-              <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: 'hsl(var(--popover))', 
-                  border: '1px solid hsl(var(--border))', 
-                  color: 'hsl(var(--popover-foreground))',
-                  borderRadius: '8px'
-                }} 
-              />
-              <Legend />
-              <Area 
-                type="monotone" 
-                dataKey={chart.config?.yKey || 'density'} 
-                stroke={chartColors[0]} 
-                fill={chartColors[0]}
-                fillOpacity={0.6}
-                strokeWidth={2}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        );
-
-      case 'boxplot':
-        return (
-          <ResponsiveContainer width="100%" height={height}>
-            <BarChart data={chart.data} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
-              <XAxis 
-                dataKey="name"
-                tick={{ fill: '#9CA3AF', fontSize: 12 }} 
-                angle={-45}
-                textAnchor="end"
-                height={80}
-              />
-              <YAxis tick={{ fill: '#9CA3AF', fontSize: 12 }} />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: '#1F2937', 
-                  border: '1px solid #374151', 
-                  color: '#F3F4F6',
-                  borderRadius: '8px'
-                }}
-                formatter={(value, name) => [typeof value === 'number' ? value.toFixed(2) : value, name]}
-              />
-              <Legend />
-              <Bar dataKey="min" fill="transparent" />
-              <Bar dataKey="q1" fill={chartColors[0]} opacity={0.7} />
-              <Bar dataKey="median" fill={chartColors[1]} />
-              <Bar dataKey="q3" fill={chartColors[2]} opacity={0.7} />
-              <Bar dataKey="max" fill="transparent" />
-            </BarChart>
-          </ResponsiveContainer>
-        );
-
-      default:
-        return <div className="flex items-center justify-center h-64 text-muted-foreground">Unsupported chart type</div>;
-    }
+          </div>
+          
+          {/* Axis labels - matplotlib style */}
+          {chart.config?.xKey && (
+            <div className="text-center mt-1">
+              <span className="text-xs text-gray-700">{chart.config.xKey}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   const containerClass = isFullscreen 
@@ -450,7 +276,7 @@ export const DashboardPanel = ({
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 p-4 overflow-y-auto">
+      <div className="flex-1 p-4 overflow-y-auto max-h-full">
         {!dashboardData ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             {isGenerating ? (
@@ -550,7 +376,7 @@ export const DashboardPanel = ({
                     )}
                   </CardHeader>
                   <CardContent className="pb-6">
-                    {renderChart(chart, index)}
+                    {renderMatplotlibChart(chart, index)}
                   </CardContent>
                 </Card>
               ))}
