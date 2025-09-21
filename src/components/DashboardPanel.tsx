@@ -1,732 +1,346 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  LayoutDashboard,
-  TrendingUp,
-  Users,
-  DollarSign,
-  Activity,
-  AlertCircle,
-  CheckCircle,
-  BarChart3,
-  LineChart,
-  PieChart,
-  Brain,
-  Sparkles,
-  Target,
-  Lightbulb,
-  Star
-} from 'lucide-react';
+  BarChart, 
+  Bar, 
+  LineChart, 
+  Line, 
+  PieChart, 
+  Pie, 
+  Cell,
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  Legend, 
+  ResponsiveContainer,
+  ScatterChart,
+  Scatter
+} from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { 
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  BarChart3,
+  PieChart as PieChartIcon,
+  LineChart as LineChartIcon,
+  RefreshCw,
+  Loader2,
+  Database,
+  Sparkles,
+  Target,
+  AlertCircle,
+  CheckCircle,
+  Activity
+} from 'lucide-react';
 import { useEditor } from '@/contexts/EditorContext';
 import { supabase } from '@/integrations/supabase/client';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  LineChart as RechartsLineChart,
-  Line,
-  PieChart as RechartsPieChart,
-  Pie,
-  Cell,
-  AreaChart,
-  Area
-} from 'recharts';
+import { useToast } from '@/hooks/use-toast';
 
-interface DashboardPanelProps {
-  className?: string;
-}
+const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4'];
 
-export const DashboardPanel = ({ className = '' }: DashboardPanelProps) => {
+export const DashboardPanel = () => {
+  const { toast } = useToast();
   const { getAllFilesContent } = useEditor();
-  const [aiInsights, setAiInsights] = useState<any>(null);
-  const [templateRecommendations, setTemplateRecommendations] = useState<any>(null);
-  const [aiKPIs, setAiKPIs] = useState<any>(null);
-  const [isLoadingAI, setIsLoadingAI] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [dashboardData, setDashboardData] = useState<any>(null);
 
-  // Get CSV data for dashboard
-  const getCsvData = () => {
-    const allFiles = getAllFilesContent();
-    const csvFiles = allFiles.filter(f => f.type === 'csv');
-    return csvFiles.length > 0 ? csvFiles[csvFiles.length - 1] : null;
-  };
-
-  const currentCsvData = getCsvData();
-
-  // Smart chart selection based on AI insights and data characteristics
-  const getSmartChartRecommendations = () => {
-    if (!currentCsvData?.content || !aiInsights) {
-      return { recommendedCharts: ['bar', 'line', 'area'] };
-    }
-
-    const columnAnalysis = aiInsights.insights.columnAnalysis || [];
-    const numericColumns = columnAnalysis.filter(col => col.dataType === 'numeric').map(col => col.column);
-    const categoricalColumns = columnAnalysis.filter(col => col.dataType === 'categorical').map(col => col.column);
+  const generateSmartDashboard = async () => {
+    setIsGenerating(true);
     
-    const recommendedCharts = [];
-    
-    // Determine best charts based on data structure
-    if (numericColumns.length >= 2) {
-      recommendedCharts.push('scatter', 'line', 'area');
-    }
-    if (categoricalColumns.length >= 1 && numericColumns.length >= 1) {
-      recommendedCharts.push('bar', 'column');
-    }
-    if (categoricalColumns.length >= 1) {
-      recommendedCharts.push('pie', 'donut');
-    }
-    if (numericColumns.length >= 1) {
-      recommendedCharts.push('histogram', 'box');
-    }
-    
-    return { 
-      recommendedCharts: recommendedCharts.length > 0 ? recommendedCharts : ['bar', 'line', 'area'],
-      numericColumns,
-      categoricalColumns
-    };
-  };
-
-  // Process CSV data for visualizations
-  const processDataForCharts = () => {
-    if (!currentCsvData?.content) {
-      return {
-        barData: [],
-        lineData: [],
-        pieData: [],
-        kpis: {
-          totalRecords: 0,
-          avgValue: 0,
-          maxValue: 0,
-          completionRate: 0
-        }
-      };
-    }
-
     try {
-      const lines = currentCsvData.content.trim().split('\n');
-      const headers = lines[0].split(',').map(h => h.trim());
-      const dataRows = lines.slice(1).map(line => 
-        line.split(',').map(cell => cell.trim())
+      const allFiles = getAllFilesContent();
+      const csvFiles = allFiles.filter(file => 
+        file.fileName.toLowerCase().endsWith('.csv') && file.content?.trim()
       );
 
-      // Create sample visualizations based on data
-      const processedData = dataRows.map((row, index) => {
-        const obj: any = { id: index };
-        headers.forEach((header, i) => {
-          const value = row[i];
-          // Try to parse as number, otherwise keep as string
-          const numValue = parseFloat(value);
-          obj[header] = isNaN(numValue) ? value : numValue;
+      if (csvFiles.length === 0) {
+        toast({
+          title: "No CSV Data Found",
+          description: "Please upload and open a CSV file to generate dashboard insights.",
+          variant: "destructive"
         });
-        return obj;
-      });
-
-      // Calculate KPIs
-      const numericColumns = headers.filter(header => 
-        processedData.some(row => typeof row[header] === 'number')
-      );
-
-      let totalRecords = processedData.length;
-      let avgValue = 0;
-      let maxValue = 0;
-      let completionRate = 0;
-
-      if (numericColumns.length > 0) {
-        const firstNumericCol = numericColumns[0];
-        const values = processedData.map(row => row[firstNumericCol]).filter(v => typeof v === 'number');
-        avgValue = values.reduce((sum, val) => sum + val, 0) / values.length;
-        maxValue = Math.max(...values);
-        completionRate = (values.length / totalRecords) * 100;
+        return;
       }
 
-      // Create chart data
-      const chartData = processedData.slice(0, 10); // Limit for better visualization
-
-      return {
-        barData: chartData,
-        lineData: chartData,
-        pieData: chartData.slice(0, 5),
-        kpis: {
-          totalRecords,
-          avgValue: Math.round(avgValue * 100) / 100,
-          maxValue,
-          completionRate: Math.round(completionRate)
-        },
-        headers,
-        numericColumns
-      };
-    } catch (error) {
-      console.error('Error processing CSV data:', error);
-      return {
-        barData: [],
-        lineData: [],
-        pieData: [],
-        kpis: {
-          totalRecords: 0,
-          avgValue: 0,
-          maxValue: 0,
-          completionRate: 0
-        }
-      };
-    }
-  };
-
-  const { barData, lineData, pieData, kpis, headers = [], numericColumns = [] } = processDataForCharts();
-  const { recommendedCharts, numericColumns: smartNumericCols, categoricalColumns: smartCategoricalCols } = getSmartChartRecommendations();
-
-  const COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', '#ff7c7c', '#8dd1e1'];
-
-  // AI Analysis Functions
-  const getAIInsights = async () => {
-    if (!currentCsvData?.content) return;
-    
-    setIsLoadingAI(true);
-    try {
+      const csvFile = csvFiles[0]; // Use first CSV file
+      
       const { data, error } = await supabase.functions.invoke('ai-dashboard-insights', {
-        body: { 
-          csvData: currentCsvData.content,
-          analysisType: 'insights'
+        body: {
+          csvData: csvFile.content.substring(0, 15000), // Limit for performance
+          fileName: csvFile.fileName
         }
       });
 
       if (error) throw error;
-      setAiInsights(data.analysis);
+
+      if (data.success) {
+        setDashboardData(data.dashboard);
+        toast({
+          title: "Smart Dashboard Generated",
+          description: `AI-powered dashboard created for ${csvFile.fileName}`,
+        });
+      } else {
+        throw new Error(data.error || 'Failed to generate dashboard');
+      }
     } catch (error) {
-      console.error('Error getting AI insights:', error);
+      console.error('Dashboard generation error:', error);
+      toast({
+        title: "Generation Failed",
+        description: error.message || "Failed to generate smart dashboard",
+        variant: "destructive"
+      });
     } finally {
-      setIsLoadingAI(false);
+      setIsGenerating(false);
     }
   };
 
-  const getTemplateRecommendations = async () => {
-    if (!currentCsvData?.content) return;
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('ai-dashboard-insights', {
-        body: { 
-          csvData: currentCsvData.content,
-          analysisType: 'templates'
-        }
-      });
-
-      if (error) throw error;
-      setTemplateRecommendations(data.analysis);
-    } catch (error) {
-      console.error('Error getting template recommendations:', error);
-    }
-  };
-
-  const getAIKPIs = async () => {
-    if (!currentCsvData?.content) return;
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('ai-dashboard-insights', {
-        body: { 
-          csvData: currentCsvData.content,
-          analysisType: 'kpis'
-        }
-      });
-
-      if (error) throw error;
-      setAiKPIs(data.analysis);
-    } catch (error) {
-      console.error('Error getting AI KPIs:', error);
-    }
-  };
-
-  // Load AI insights when CSV data changes
+  // Auto-generate dashboard when CSV is detected
   useEffect(() => {
-    if (currentCsvData?.content) {
-      getAIInsights();
-      getTemplateRecommendations();
-      getAIKPIs();
+    const allFiles = getAllFilesContent();
+    const csvFiles = allFiles.filter(file => 
+      file.fileName.toLowerCase().endsWith('.csv') && file.content?.trim()
+    );
+    
+    if (csvFiles.length > 0 && !dashboardData) {
+      generateSmartDashboard();
     }
-  }, [currentCsvData?.content]);
+  }, [getAllFilesContent()]);
+
+  const getTrendIcon = (trend: string) => {
+    switch (trend) {
+      case 'up': return <TrendingUp className="w-4 h-4 text-green-500" />;
+      case 'down': return <TrendingDown className="w-4 h-4 text-red-500" />;
+      default: return <Minus className="w-4 h-4 text-gray-500" />;
+    }
+  };
+
+  const renderChart = (chart: any) => {
+    const chartColors = COLORS.slice(0, chart.data?.length || 1);
+    
+    switch (chart.type) {
+      case 'bar':
+        return (
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={chart.data}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis 
+                dataKey={chart.config?.xKey || 'name'} 
+                tick={{ fill: '#9CA3AF', fontSize: 12 }} 
+                angle={-45}
+                textAnchor="end"
+                height={60}
+              />
+              <YAxis tick={{ fill: '#9CA3AF', fontSize: 12 }} />
+              <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', color: '#F3F4F6' }} />
+              <Bar dataKey={chart.config?.yKey || 'value'} fill={chartColors[0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        );
+      
+      case 'pie':
+        return (
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={chart.data}
+                cx="50%"
+                cy="50%"
+                outerRadius={80}
+                dataKey={chart.config?.dataKey || 'value'}
+                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}
+              >
+                {chart.data?.map((entry: any, index: number) => (
+                  <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
+                ))}
+              </Pie>
+              <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', color: '#F3F4F6' }} />
+            </PieChart>
+          </ResponsiveContainer>
+        );
+      
+      case 'scatter':
+        return (
+          <ResponsiveContainer width="100%" height={300}>
+            <ScatterChart data={chart.data}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis dataKey={chart.config?.xKey || 'x'} tick={{ fill: '#9CA3AF', fontSize: 12 }} />
+              <YAxis dataKey={chart.config?.yKey || 'y'} tick={{ fill: '#9CA3AF', fontSize: 12 }} />
+              <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', color: '#F3F4F6' }} />
+              <Scatter dataKey={chart.config?.yKey || 'y'} fill={chartColors[0]} />
+            </ScatterChart>
+          </ResponsiveContainer>
+        );
+      
+      case 'line':
+        return (
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={chart.data}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis dataKey={chart.config?.xKey || 'name'} tick={{ fill: '#9CA3AF', fontSize: 12 }} />
+              <YAxis tick={{ fill: '#9CA3AF', fontSize: 12 }} />
+              <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', color: '#F3F4F6' }} />
+              <Line type="monotone" dataKey={chart.config?.yKey || 'value'} stroke={chartColors[0]} strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
+        );
+      
+      default:
+        return <div className="flex items-center justify-center h-64 text-muted-foreground">Unsupported chart type</div>;
+    }
+  };
 
   return (
-    <div className={`h-full bg-background border-r border-border overflow-y-auto ${className}`}>
-      {/* Dashboard Header */}
-      <div className="p-6 border-b border-border bg-card/50">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <LayoutDashboard className="w-6 h-6 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Smart Data Dashboard</h1>
-              {currentCsvData && (
-                <p className="text-sm text-muted-foreground mt-1">
-                  AI-powered analysis of: {currentCsvData.fileName}
-                </p>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="text-xs">
-              <Brain className="w-3 h-3 mr-1" />
-              AI Enhanced
-            </Badge>
-            {isLoadingAI && (
-              <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+    <div className="h-full bg-panel-background border-panel-border flex flex-col">
+      {/* Header */}
+      <div className="p-4 border-b border-panel-border bg-sidebar-background">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+            <Sparkles className="w-5 h-5" />
+            Smart Dashboard
+          </h2>
+          <Button 
+            onClick={generateSmartDashboard}
+            disabled={isGenerating}
+            size="sm"
+            className="bg-primary hover:bg-primary/90"
+          >
+            {isGenerating ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4 mr-2" />
             )}
-          </div>
+            {isGenerating ? 'Generating...' : 'Regenerate'}
+          </Button>
         </div>
+        
+        {/* Quick Stats */}
+        {dashboardData?.keyMetrics && (
+          <div className="grid grid-cols-2 gap-2">
+            {dashboardData.keyMetrics.slice(0, 4).map((metric: any, index: number) => (
+              <Card key={index} className="bg-card border-border p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground">{metric.label}</p>
+                    <p className="text-lg font-semibold text-foreground">{metric.value}</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {getTrendIcon(metric.trend)}
+                    {metric.change && (
+                      <span className={`text-xs ${
+                        metric.trend === 'up' ? 'text-green-500' : 
+                        metric.trend === 'down' ? 'text-red-500' : 'text-gray-500'
+                      }`}>
+                        {metric.change}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
 
-      {!currentCsvData ? (
-        <div className="p-6 text-center">
-          <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">No Data Available</h3>
-          <p className="text-muted-foreground">
-            Upload or create a CSV file to view dashboard insights.
-          </p>
-        </div>
-      ) : (
-        <div className="p-4 space-y-6">
-          {/* AI Template Recommendations */}
-          {templateRecommendations && (
-            <Card className="bg-gradient-to-r from-primary/10 to-secondary/10 border-primary/20">
-              <CardHeader className="p-3">
-                <div className="flex items-center gap-2">
-                  <Brain className="w-4 h-4 text-primary" />
-                  <CardTitle className="text-sm font-medium text-card-foreground">AI Dashboard Recommendations</CardTitle>
-                  <Sparkles className="w-4 h-4 text-yellow-500" />
-                </div>
-              </CardHeader>
-              <CardContent className="p-3 space-y-3">
-                {templateRecommendations.templates?.slice(0, 3).map((template: any, index: number) => (
-                  <div key={index} className="p-3 bg-card rounded-lg border border-border">
-                    <div className="flex items-start justify-between mb-2">
-                      <h4 className="font-medium text-card-foreground">{template.name}</h4>
-                      <Badge variant="secondary" className="text-xs">
-                        {template.suitabilityScore}% match
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground mb-2">{template.description}</p>
-                    <div className="flex flex-wrap gap-1">
-                      {template.features?.slice(0, 3).map((feature: string, idx: number) => (
-                        <Badge key={idx} variant="outline" className="text-xs">
-                          {feature}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* AI-Suggested KPIs Section */}
-          {aiKPIs && (
-            <Card className="bg-card">
-              <CardHeader className="p-3">
-                <div className="flex items-center gap-2">
-                  <Target className="w-4 h-4 text-primary" />
-                  <CardTitle className="text-sm font-medium text-card-foreground">AI-Suggested KPIs</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="p-3">
-                <div className="grid grid-cols-2 gap-3">
-                  {aiKPIs.kpis?.slice(0, 4).map((kpi: any, index: number) => (
-                    <div key={index} className="p-2 bg-muted/50 rounded-lg">
-                      <div className="flex items-center gap-1 mb-1">
-                        <Star className="w-3 h-3 text-primary" />
-                        <h5 className="text-xs font-medium text-card-foreground">{kpi.name}</h5>
-                      </div>
-                      <p className="text-xs text-muted-foreground">{kpi.description}</p>
-                      <Badge variant="outline" className="text-xs mt-1">
-                        {kpi.category}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Traditional KPIs Section */}
-          <div className="grid grid-cols-2 gap-4">
-            <Card className="bg-card">
-              <CardHeader className="p-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-card-foreground">Total Records</CardTitle>
-                  <Users className="w-4 h-4 text-primary" />
-                </div>
-              </CardHeader>
-              <CardContent className="p-3 pt-0">
-                <div className="text-xl font-bold text-card-foreground">{kpis.totalRecords}</div>
-                <p className="text-xs text-muted-foreground">Data points</p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-card">
-              <CardHeader className="p-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-card-foreground">Completion Rate</CardTitle>
-                  <CheckCircle className="w-4 h-4 text-green-500" />
-                </div>
-              </CardHeader>
-              <CardContent className="p-3 pt-0">
-                <div className="text-xl font-bold text-card-foreground">{kpis.completionRate}%</div>
-                <p className="text-xs text-muted-foreground">Data quality</p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-card">
-              <CardHeader className="p-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-card-foreground">Average Value</CardTitle>
-                  <TrendingUp className="w-4 h-4 text-blue-500" />
-                </div>
-              </CardHeader>
-              <CardContent className="p-3 pt-0">
-                <div className="text-xl font-bold text-card-foreground">{kpis.avgValue}</div>
-                <p className="text-xs text-muted-foreground">Mean calculation</p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-card">
-              <CardHeader className="p-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-card-foreground">Max Value</CardTitle>
-                  <Activity className="w-4 h-4 text-orange-500" />
-                </div>
-              </CardHeader>
-              <CardContent className="p-3 pt-0">
-                <div className="text-xl font-bold text-card-foreground">{kpis.maxValue}</div>
-                <p className="text-xs text-muted-foreground">Peak value</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Smart Charts Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Dynamic charts based on AI recommendations */}
-            {recommendedCharts.includes('bar') && smartCategoricalCols.length > 0 && smartNumericCols.length > 0 && (
-              <Card className="bg-card">
-                <CardHeader className="p-3">
-                  <div className="flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4 text-primary" />
-                    <CardTitle className="text-sm font-medium text-card-foreground">
-                      {smartCategoricalCols[0]} Distribution
-                    </CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-3">
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={barData.slice(0, 10)}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground) / 0.2)" />
-                        <XAxis 
-                          dataKey={smartCategoricalCols[0] || headers[0]} 
-                          tick={{ fontSize: 11 }}
-                          stroke="hsl(var(--muted-foreground))"
-                          angle={-45}
-                          textAnchor="end"
-                          height={60}
-                        />
-                        <YAxis 
-                          tick={{ fontSize: 11 }}
-                          stroke="hsl(var(--muted-foreground))"
-                        />
-                        <Tooltip 
-                          contentStyle={{ 
-                            backgroundColor: 'hsl(var(--card))',
-                            border: '1px solid hsl(var(--border))',
-                            borderRadius: '6px',
-                            fontSize: '12px'
-                          }}
-                        />
-                        <Legend wrapperStyle={{ fontSize: '12px' }} />
-                        {smartNumericCols.slice(0, 2).map((col, index) => (
-                          <Bar 
-                            key={col}
-                            dataKey={col} 
-                            fill={COLORS[index % COLORS.length]}
-                            name={col}
-                          />
-                        ))}
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Line Chart for Trends */}
-            {recommendedCharts.includes('line') && smartNumericCols.length >= 2 && (
-              <Card className="bg-card">
-                <CardHeader className="p-3">
-                  <div className="flex items-center gap-2">
-                    <LineChart className="w-4 h-4 text-primary" />
-                    <CardTitle className="text-sm font-medium text-card-foreground">
-                      Trend Analysis: {smartNumericCols.slice(0, 2).join(' vs ')}
-                    </CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-3">
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RechartsLineChart data={lineData.slice(0, 20)}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground) / 0.2)" />
-                        <XAxis 
-                          dataKey={headers[0]} 
-                          tick={{ fontSize: 11 }}
-                          stroke="hsl(var(--muted-foreground))"
-                        />
-                        <YAxis 
-                          tick={{ fontSize: 11 }}
-                          stroke="hsl(var(--muted-foreground))"
-                        />
-                        <Tooltip 
-                          contentStyle={{ 
-                            backgroundColor: 'hsl(var(--card))',
-                            border: '1px solid hsl(var(--border))',
-                            borderRadius: '6px',
-                            fontSize: '12px'
-                          }}
-                        />
-                        <Legend wrapperStyle={{ fontSize: '12px' }} />
-                        {smartNumericCols.slice(0, 2).map((col, index) => (
-                          <Line 
-                            key={col}
-                            type="monotone" 
-                            dataKey={col} 
-                            stroke={COLORS[index % COLORS.length]}
-                            strokeWidth={2}
-                            name={col}
-                          />
-                        ))}
-                      </RechartsLineChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Area Chart for Cumulative Analysis */}
-            {recommendedCharts.includes('area') && smartNumericCols.length >= 1 && (
-              <Card className="bg-card">
-                <CardHeader className="p-3">
-                  <div className="flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-primary" />
-                    <CardTitle className="text-sm font-medium text-card-foreground">
-                      Cumulative {smartNumericCols[0]} Analysis
-                    </CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-3">
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={lineData.slice(0, 15)}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground) / 0.2)" />
-                        <XAxis 
-                          dataKey={headers[0]} 
-                          tick={{ fontSize: 11 }}
-                          stroke="hsl(var(--muted-foreground))"
-                        />
-                        <YAxis 
-                          tick={{ fontSize: 11 }}
-                          stroke="hsl(var(--muted-foreground))"
-                        />
-                        <Tooltip 
-                          contentStyle={{ 
-                            backgroundColor: 'hsl(var(--card))',
-                            border: '1px solid hsl(var(--border))',
-                            borderRadius: '6px',
-                            fontSize: '12px'
-                          }}
-                        />
-                        <Legend wrapperStyle={{ fontSize: '12px' }} />
-                        {smartNumericCols.slice(0, 2).map((col, index) => (
-                          <Area 
-                            key={col}
-                            type="monotone" 
-                            dataKey={col} 
-                            stroke={COLORS[index % COLORS.length]}
-                            fill={COLORS[index % COLORS.length]}
-                            fillOpacity={0.3}
-                            name={col}
-                          />
-                        ))}
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Pie Chart for Categorical Distribution */}
-            {recommendedCharts.includes('pie') && smartCategoricalCols.length > 0 && (
-              <Card className="bg-card">
-                <CardHeader className="p-3">
-                  <div className="flex items-center gap-2">
-                    <PieChart className="w-4 h-4 text-primary" />
-                    <CardTitle className="text-sm font-medium text-card-foreground">
-                      {smartCategoricalCols[0]} Distribution
-                    </CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-3">
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RechartsPieChart>
-                        <Pie
-                          data={pieData.slice(0, 6)}
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={80}
-                          dataKey={smartNumericCols[0] || 'value'}
-                          nameKey={smartCategoricalCols[0] || headers[0]}
-                        >
-                          {pieData.slice(0, 6).map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip 
-                          contentStyle={{ 
-                            backgroundColor: 'hsl(var(--card))',
-                            border: '1px solid hsl(var(--border))',
-                            borderRadius: '6px',
-                            fontSize: '12px'
-                          }}
-                        />
-                        <Legend wrapperStyle={{ fontSize: '12px' }} />
-                      </RechartsPieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* AI Insights Section */}
-          {aiInsights ? (
-            <Card className="bg-gradient-to-r from-blue-50/50 to-purple-50/50 dark:from-blue-950/20 dark:to-purple-950/20 border-blue-200/50 dark:border-blue-800/50">
-              <CardHeader className="p-3">
-                <div className="flex items-center gap-2">
-                  <Lightbulb className="w-4 h-4 text-primary" />
-                  <CardTitle className="text-sm font-medium text-card-foreground">AI-Powered Insights</CardTitle>
-                  {isLoadingAI && <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />}
-                </div>
-              </CardHeader>
-              <CardContent className="p-3 space-y-4">
-                {/* Data Quality */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-medium text-card-foreground">Data Quality Score</h4>
-                    <Badge variant={aiInsights.insights.dataQuality.score > 80 ? "default" : "secondary"}>
-                      {aiInsights.insights.dataQuality.score}/100
-                    </Badge>
-                  </div>
-                  {aiInsights.insights.dataQuality.recommendations?.length > 0 && (
-                    <ul className="text-xs text-muted-foreground space-y-1">
-                      {aiInsights.insights.dataQuality.recommendations.slice(0, 3).map((rec: string, idx: number) => (
-                        <li key={idx}>• {rec}</li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-
-                {/* Column Analysis */}
-                {aiInsights.insights.columnAnalysis?.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium text-card-foreground">Column Insights</h4>
-                    <div className="space-y-2">
-                      {aiInsights.insights.columnAnalysis.slice(0, 3).map((col: any, idx: number) => (
-                        <div key={idx} className="p-2 bg-muted/30 rounded">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Badge variant="outline" className="text-xs">{col.column}</Badge>
-                            <Badge variant="secondary" className="text-xs">{col.dataType}</Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground">{col.insights}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Business Insights */}
-                {aiInsights.insights.businessInsights?.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium text-card-foreground">Business Insights</h4>
-                    <ul className="text-xs text-muted-foreground space-y-1">
-                      {aiInsights.insights.businessInsights.slice(0, 4).map((insight: string, idx: number) => (
-                        <li key={idx} className="flex items-start gap-2">
-                          <TrendingUp className="w-3 h-3 mt-0.5 text-primary flex-shrink-0" />
-                          {insight}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Actionable Recommendations */}
-                {aiInsights.insights.actionableRecommendations?.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium text-card-foreground">AI Recommendations</h4>
-                    <ul className="text-xs text-muted-foreground space-y-1">
-                      {aiInsights.insights.actionableRecommendations.slice(0, 3).map((rec: string, idx: number) => (
-                        <li key={idx} className="flex items-start gap-2">
-                          <CheckCircle className="w-3 h-3 mt-0.5 text-green-500 flex-shrink-0" />
-                          {rec}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                <Button 
-                  onClick={getAIInsights} 
-                  variant="outline" 
-                  size="sm" 
-                  className="w-full mt-3"
-                  disabled={isLoadingAI}
-                >
-                  {isLoadingAI ? 'Analyzing...' : 'Refresh AI Analysis'}
+      {/* Main Content */}
+      <div className="flex-1 p-4 overflow-y-auto space-y-4">
+        {!dashboardData ? (
+          <div className="flex flex-col items-center justify-center h-full text-center">
+            {isGenerating ? (
+              <>
+                <Loader2 className="w-16 h-16 text-primary mb-4 animate-spin" />
+                <h3 className="text-lg font-medium text-foreground mb-2">Generating Smart Dashboard</h3>
+                <p className="text-sm text-muted-foreground">
+                  AI is analyzing your data and creating visualizations...
+                </p>
+              </>
+            ) : (
+              <>
+                <Database className="w-16 h-16 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">No Dashboard Data</h3>
+                <p className="text-sm text-muted-foreground mb-6 max-w-md">
+                  Upload a CSV file to generate intelligent visualizations and business insights automatically.
+                </p>
+                <Button onClick={generateSmartDashboard} disabled={isGenerating}>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Generate Smart Dashboard
                 </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="bg-card">
-              <CardHeader className="p-3">
-                <div className="flex items-center gap-2">
-                  <Lightbulb className="w-4 h-4 text-primary" />
-                  <CardTitle className="text-sm font-medium text-card-foreground">Data Insights</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="p-3 space-y-3">
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium text-card-foreground">Dataset Overview</h4>
-                  <p className="text-xs text-muted-foreground">
-                    This dataset contains {kpis.totalRecords} records with {headers.length} columns. 
-                    {numericColumns.length > 0 && (
-                      ` ${numericColumns.length} columns contain numeric data suitable for statistical analysis.`
+              </>
+            )}
+          </div>
+        ) : (
+          <>
+            {/* Charts Grid */}
+            <div className="grid gap-4">
+              {dashboardData.charts?.map((chart: any, index: number) => (
+                <Card key={chart.id || index} className="bg-card border-border">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      {chart.type === 'bar' && <BarChart3 className="w-5 h-5 text-primary" />}
+                      {chart.type === 'line' && <LineChartIcon className="w-5 h-5 text-primary" />}
+                      {chart.type === 'pie' && <PieChartIcon className="w-5 h-5 text-primary" />}
+                      {chart.type === 'scatter' && <Target className="w-5 h-5 text-primary" />}
+                      {chart.title}
+                    </CardTitle>
+                    {chart.description && (
+                      <p className="text-sm text-muted-foreground">{chart.description}</p>
                     )}
-                  </p>
-                </div>
-                
-                <Button 
-                  onClick={getAIInsights} 
-                  variant="default" 
-                  size="sm" 
-                  className="w-full"
-                  disabled={isLoadingAI}
-                >
-                  <Brain className="w-4 h-4 mr-2" />
-                  {isLoadingAI ? 'Getting AI Insights...' : 'Get AI Insights'}
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      )}
+                  </CardHeader>
+                  <CardContent>
+                    {renderChart(chart)}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Extended Metrics */}
+            {dashboardData.keyMetrics && dashboardData.keyMetrics.length > 4 && (
+              <Card className="bg-card border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Activity className="w-5 h-5" />
+                    Additional Metrics
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-3">
+                    {dashboardData.keyMetrics.slice(4).map((metric: any, index: number) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                        <span className="text-sm font-medium">{metric.label}</span>
+                        <span className="text-sm text-muted-foreground">{metric.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* AI Insights Section */}
+            {dashboardData.insights && dashboardData.insights.length > 0 && (
+              <Card className="bg-card border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Sparkles className="w-5 h-5" />
+                    AI-Generated Business Insights
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {dashboardData.insights.slice(0, 8).map((insight: string, index: number) => (
+                      <div key={index} className="flex items-start gap-3">
+                        <Badge variant="secondary" className="mt-0.5 min-w-[24px] text-center">{index + 1}</Badge>
+                        <p className="text-sm text-muted-foreground flex-1">{insight}</p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 };
