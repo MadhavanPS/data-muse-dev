@@ -20,6 +20,8 @@ interface LeftSidebarProps {
   onFileSelect?: (file: FileSystemItem) => void;
   onNewFile?: (type: 'sql' | 'python' | 'csv' | 'json') => void;
   onNewFolder?: () => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 export const LeftSidebar = ({ 
@@ -28,7 +30,9 @@ export const LeftSidebar = ({
   files = [], 
   onFileSelect = () => {}, 
   onNewFile = () => {}, 
-  onNewFolder = () => {} 
+  onNewFolder = () => {},
+  isCollapsed = false,
+  onToggleCollapse = () => {}
 }: LeftSidebarProps) => {
   const sidebarItems = [
     { id: 'explorer', icon: Files, label: 'Explorer', tooltip: 'File Explorer' },
@@ -42,6 +46,10 @@ export const LeftSidebar = ({
   const bottomItems = [
     { id: 'settings', icon: Settings, label: 'Settings', tooltip: 'Settings' },
   ];
+
+  if (isCollapsed) {
+    return null;
+  }
 
   return (
     <div className="flex">
@@ -75,6 +83,15 @@ export const LeftSidebar = ({
 
         {/* Bottom Items */}
         <div className="flex flex-col pb-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-10 h-10 p-0 mx-1 mb-1 rounded text-sidebar-foreground hover:text-foreground"
+            onClick={onToggleCollapse}
+            title="Collapse Sidebar"
+          >
+            <Layers className="w-5 h-5" />
+          </Button>
           {bottomItems.map((item) => {
             const Icon = item.icon;
             return (

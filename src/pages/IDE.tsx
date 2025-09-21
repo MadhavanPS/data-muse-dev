@@ -7,11 +7,14 @@ import { CodeEditor } from '@/components/CodeEditor';
 import { EditorProvider } from '@/contexts/EditorContext';
 import { useToast } from '@/hooks/use-toast';
 import { FileSystemItem } from '@/types/FileSystem';
+import { Button } from '@/components/ui/button';
+import { Layers } from 'lucide-react';
 
 const IDE = () => {
   const { toast } = useToast();
   const [activePanel, setActivePanel] = useState('explorer');
   const [isVizFullscreen, setIsVizFullscreen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [tabs, setTabs] = useState<FileTab[]>([
     {
       id: '1',
@@ -326,6 +329,21 @@ const IDE = () => {
 
         {/* Main Layout */}
         <div className="flex-1 flex overflow-hidden">
+          {/* Collapsed Sidebar Toggle */}
+          {isSidebarCollapsed && (
+            <div className="w-12 bg-sidebar-background border-r border-panel-border flex flex-col">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-10 h-10 p-0 mx-1 mt-2 mb-1 rounded text-sidebar-foreground hover:text-foreground"
+                onClick={() => setIsSidebarCollapsed(false)}
+                title="Expand Sidebar"
+              >
+                <Layers className="w-5 h-5" />
+              </Button>
+            </div>
+          )}
+          
           {/* Left Sidebar */}
           <LeftSidebar 
             activePanel={activePanel} 
@@ -334,6 +352,8 @@ const IDE = () => {
             onFileSelect={handleFileSelect}
             onNewFile={handleNewFile}
             onNewFolder={handleNewFolder}
+            isCollapsed={isSidebarCollapsed}
+            onToggleCollapse={() => setIsSidebarCollapsed(true)}
           />
 
           {/* Visualization Panel */}

@@ -114,11 +114,18 @@ export const RightPanel = ({ onFileUpload, onCodeUpdate, selectedCodeContext, on
     try {
       // Determine request type based on message content and context
       let requestType = 'general';
-      if (currentMessage.toLowerCase().includes('generate') || currentMessage.toLowerCase().includes('create') || currentMessage.toLowerCase().includes('write')) {
+      const lowerMsg = currentMessage.toLowerCase();
+      
+      // More comprehensive detection for code operations
+      if (lowerMsg.includes('generate') || lowerMsg.includes('create') || lowerMsg.includes('write') || 
+          lowerMsg.includes('add') || lowerMsg.includes('build') || lowerMsg.includes('make') ||
+          lowerMsg.includes('code') || (selectedText && (lowerMsg.includes('fix') || lowerMsg.includes('debug')))) {
         requestType = 'code_generation';
-      } else if (currentMessage.toLowerCase().includes('refactor') || currentMessage.toLowerCase().includes('improve') || currentMessage.toLowerCase().includes('optimize')) {
+      } else if (lowerMsg.includes('refactor') || lowerMsg.includes('improve') || lowerMsg.includes('optimize') ||
+                 lowerMsg.includes('clean') || lowerMsg.includes('rewrite') || lowerMsg.includes('change') ||
+                 (selectedText && lowerMsg.includes('update'))) {
         requestType = 'code_refactor';
-      } else if (currentMessage.toLowerCase().includes('analyze') || currentMessage.toLowerCase().includes('data') || currentMessage.toLowerCase().includes('chart')) {
+      } else if (lowerMsg.includes('analyze') || lowerMsg.includes('data') || lowerMsg.includes('chart')) {
         requestType = 'data_analysis';
       }
       
@@ -136,12 +143,23 @@ export const RightPanel = ({ onFileUpload, onCodeUpdate, selectedCodeContext, on
       if (error) throw error;
       
       if (data.success) {
-        // If it's code generation/refactoring, show inline diff in editor
-        if (requestType === 'code_generation' || requestType === 'code_refactor') {
-          const originalCodeForDiff = requestType === 'code_refactor' ? selectedText || currentContent : currentContent;
-          if (onShowInlineDiff) {
-            onShowInlineDiff(originalCodeForDiff, data.content);
+        // Always try to show code responses as diffs if they contain code-like content
+        const hasCodeContent = data.content.includes('```') || data.content.includes('def ') || 
+                              data.content.includes('SELECT') || data.content.includes('function') ||
+                              data.content.includes('{') || data.content.includes('import ');
+        
+        // If it's code generation/refactoring OR contains code, show inline diff in editor
+        if ((requestType === 'code_generation' || requestType === 'code_refactor' || hasCodeContent) && onShowInlineDiff) {
+          // Extract actual code from response if it's wrapped in markdown
+          let codeContent = data.content;
+          const codeBlockRegex = /```(?:\w+\n)?([\s\S]*?)```/;
+          const codeMatch = codeContent.match(codeBlockRegex);
+          if (codeMatch) {
+            codeContent = codeMatch[1].trim();
           }
+          
+          const originalCodeForDiff = requestType === 'code_refactor' ? selectedText || currentContent : currentContent;
+          onShowInlineDiff(originalCodeForDiff, codeContent);
           
           // Add a message indicating diff is showing
           const diffMsg: Message = {
