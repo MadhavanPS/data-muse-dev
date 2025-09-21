@@ -65,17 +65,17 @@ export const DataVisualizationTab = ({ className = '' }: DataVisualizationTabPro
         </button>
       </div>
 
-      {/* Quick Access Chart Buttons */}
+      {/* Chart Type Buttons - First Row */}
       <div className="p-3 border-b border-panel-border">
-        <div className="grid grid-cols-4 gap-2">
-          {chartTypes.map((chart) => {
+        <div className="grid grid-cols-4 gap-2 mb-3">
+          {chartTypes.slice(0, 4).map((chart) => {
             const Icon = chart.icon;
             return (
               <Button
                 key={chart.id}
                 variant="outline"
                 size="sm"
-                className={`h-9 text-xs ${
+                className={`h-10 text-xs flex-col gap-1 ${
                   selectedChart === chart.id 
                     ? 'bg-primary text-primary-foreground border-primary' 
                     : 'bg-card hover:bg-accent'
@@ -83,15 +83,36 @@ export const DataVisualizationTab = ({ className = '' }: DataVisualizationTabPro
                 onClick={() => setSelectedChart(chart.id)}
                 title={chart.label}
               >
-                <Icon className="w-4 h-4 mr-1" />
-                {chart.id === 'bar' && 'Bar Chart'}
-                {chart.id === 'line' && 'Line Chart'}
-                {chart.id === 'pie' && 'Pie Chart'}
-                {chart.id === 'trend' && 'Trend'}
-                {chart.id === 'time' && 'Time'}
-                {chart.id === 'refresh' && 'Refresh'}
-                {chart.id === 'download' && 'Download'}
-                {chart.id === 'ai' && 'AI'}
+                <Icon className="w-4 h-4" />
+                <span className="text-[10px]">{chart.label}</span>
+              </Button>
+            );
+          })}
+        </div>
+        
+        {/* Action Buttons - Second Row */}
+        <div className="grid grid-cols-4 gap-2">
+          {chartTypes.slice(4).map((chart) => {
+            const Icon = chart.icon;
+            return (
+              <Button
+                key={chart.id}
+                variant="ghost"
+                size="sm"
+                className="h-8 text-xs justify-start gap-2 text-muted-foreground hover:text-foreground"
+                onClick={() => {
+                  if (chart.id === 'refresh') {
+                    // Handle refresh
+                  } else if (chart.id === 'download') {
+                    // Handle download
+                  } else if (chart.id === 'ai') {
+                    // Handle AI suggestions
+                  }
+                }}
+                title={chart.label}
+              >
+                <Icon className="w-4 h-4" />
+                {chart.label}
               </Button>
             );
           })}
