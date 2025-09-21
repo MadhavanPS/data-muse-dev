@@ -15,6 +15,7 @@ const IDE = () => {
   const { toast } = useToast();
   const [activePanel, setActivePanel] = useState('explorer');
   const [isVizFullscreen, setIsVizFullscreen] = useState(false);
+  const [isFullscreenDashboard, setIsFullscreenDashboard] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [tabs, setTabs] = useState<FileTab[]>([
     {
@@ -359,6 +360,7 @@ const IDE = () => {
             onNewFolder={handleNewFolder}
             isCollapsed={isSidebarCollapsed}
             onToggleCollapse={() => setIsSidebarCollapsed(true)}
+            onShowDashboard={() => setIsFullscreenDashboard(true)}
           />
 
           {/* Panel Area */}
@@ -406,6 +408,27 @@ const IDE = () => {
               isFullscreen={true}
               onToggleFullscreen={() => setIsVizFullscreen(false)}
             />
+          </div>
+        )}
+
+        {/* Fullscreen Dashboard Modal */}
+        {isFullscreenDashboard && (
+          <div className="fixed inset-0 bg-background/95 backdrop-blur-sm z-50 flex">
+            <div className="w-full h-full relative">
+              <div className="absolute top-4 right-4 z-10">
+                <Button
+                  onClick={() => setIsFullscreenDashboard(false)}
+                  variant="outline"
+                  size="sm"
+                  className="bg-card hover:bg-card/80 border border-border text-card-foreground"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </Button>
+              </div>
+              <DashboardPanel className="w-full h-full" />
+            </div>
           </div>
         )}
       </div>

@@ -33,6 +33,7 @@ import {
   LineChart as RechartsLineChart,
   Line,
   PieChart as RechartsPieChart,
+  Pie,
   Cell,
   AreaChart,
   Area
@@ -57,6 +58,39 @@ export const DashboardPanel = ({ className = '' }: DashboardPanelProps) => {
   };
 
   const currentCsvData = getCsvData();
+
+  // Smart chart selection based on AI insights and data characteristics
+  const getSmartChartRecommendations = () => {
+    if (!currentCsvData?.content || !aiInsights) {
+      return { recommendedCharts: ['bar', 'line', 'area'] };
+    }
+
+    const columnAnalysis = aiInsights.insights.columnAnalysis || [];
+    const numericColumns = columnAnalysis.filter(col => col.dataType === 'numeric').map(col => col.column);
+    const categoricalColumns = columnAnalysis.filter(col => col.dataType === 'categorical').map(col => col.column);
+    
+    const recommendedCharts = [];
+    
+    // Determine best charts based on data structure
+    if (numericColumns.length >= 2) {
+      recommendedCharts.push('scatter', 'line', 'area');
+    }
+    if (categoricalColumns.length >= 1 && numericColumns.length >= 1) {
+      recommendedCharts.push('bar', 'column');
+    }
+    if (categoricalColumns.length >= 1) {
+      recommendedCharts.push('pie', 'donut');
+    }
+    if (numericColumns.length >= 1) {
+      recommendedCharts.push('histogram', 'box');
+    }
+    
+    return { 
+      recommendedCharts: recommendedCharts.length > 0 ? recommendedCharts : ['bar', 'line', 'area'],
+      numericColumns,
+      categoricalColumns
+    };
+  };
 
   // Process CSV data for visualizations
   const processDataForCharts = () => {
@@ -144,8 +178,9 @@ export const DashboardPanel = ({ className = '' }: DashboardPanelProps) => {
   };
 
   const { barData, lineData, pieData, kpis, headers = [], numericColumns = [] } = processDataForCharts();
+  const { recommendedCharts, numericColumns: smartNumericCols, categoricalColumns: smartCategoricalCols } = getSmartChartRecommendations();
 
-  const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7c7c', '#8dd1e1'];
+  const COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', '#ff7c7c', '#8dd1e1'];
 
   // AI Analysis Functions
   const getAIInsights = async () => {
@@ -215,18 +250,33 @@ export const DashboardPanel = ({ className = '' }: DashboardPanelProps) => {
   }, [currentCsvData?.content]);
 
   return (
-    <div className={`h-full bg-panel-background border-r border-panel-border overflow-y-auto ${className}`}>
+    <div className={`h-full bg-background border-r border-border overflow-y-auto ${className}`}>
       {/* Dashboard Header */}
-      <div className="p-4 border-b border-panel-border bg-panel-header">
-        <div className="flex items-center gap-2">
-          <LayoutDashboard className="w-5 h-5 text-primary" />
-          <h2 className="text-lg font-semibold">Data Dashboard</h2>
+      <div className="p-6 border-b border-border bg-card/50">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <LayoutDashboard className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Smart Data Dashboard</h1>
+              {currentCsvData && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  AI-powered analysis of: {currentCsvData.fileName}
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="text-xs">
+              <Brain className="w-3 h-3 mr-1" />
+              AI Enhanced
+            </Badge>
+            {isLoadingAI && (
+              <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            )}
+          </div>
         </div>
-        {currentCsvData && (
-          <p className="text-sm text-muted-foreground mt-1">
-            Analysis of: {currentCsvData.fileName}
-          </p>
-        )}
       </div>
 
       {!currentCsvData ? (
@@ -355,138 +405,205 @@ export const DashboardPanel = ({ className = '' }: DashboardPanelProps) => {
             </Card>
           </div>
 
-          {/* Charts Section */}
-          <div className="space-y-4">
-            {/* Bar Chart */}
-            <Card className="bg-card">
-              <CardHeader className="p-3">
-                <div className="flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4 text-primary" />
-                  <CardTitle className="text-sm font-medium text-card-foreground">Distribution Analysis</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="p-3">
-                <div className="h-48">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={barData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground) / 0.2)" />
-                      <XAxis 
-                        dataKey={headers[0]} 
-                        tick={{ fontSize: 12 }}
-                        stroke="hsl(var(--muted-foreground))"
-                      />
-                      <YAxis 
-                        tick={{ fontSize: 12 }}
-                        stroke="hsl(var(--muted-foreground))"
-                      />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'hsl(var(--card))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '6px'
-                        }}
-                      />
-                      {numericColumns.slice(0, 2).map((col, index) => (
-                        <Bar 
-                          key={col}
-                          dataKey={col} 
-                          fill={COLORS[index % COLORS.length]} 
+          {/* Smart Charts Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Dynamic charts based on AI recommendations */}
+            {recommendedCharts.includes('bar') && smartCategoricalCols.length > 0 && smartNumericCols.length > 0 && (
+              <Card className="bg-card">
+                <CardHeader className="p-3">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-primary" />
+                    <CardTitle className="text-sm font-medium text-card-foreground">
+                      {smartCategoricalCols[0]} Distribution
+                    </CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-3">
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={barData.slice(0, 10)}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground) / 0.2)" />
+                        <XAxis 
+                          dataKey={smartCategoricalCols[0] || headers[0]} 
+                          tick={{ fontSize: 11 }}
+                          stroke="hsl(var(--muted-foreground))"
+                          angle={-45}
+                          textAnchor="end"
+                          height={60}
                         />
-                      ))}
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
+                        <YAxis 
+                          tick={{ fontSize: 11 }}
+                          stroke="hsl(var(--muted-foreground))"
+                        />
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--card))',
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '6px',
+                            fontSize: '12px'
+                          }}
+                        />
+                        <Legend wrapperStyle={{ fontSize: '12px' }} />
+                        {smartNumericCols.slice(0, 2).map((col, index) => (
+                          <Bar 
+                            key={col}
+                            dataKey={col} 
+                            fill={COLORS[index % COLORS.length]}
+                            name={col}
+                          />
+                        ))}
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-            {/* Line Chart */}
-            <Card className="bg-card">
-              <CardHeader className="p-3">
-                <div className="flex items-center gap-2">
-                  <LineChart className="w-4 h-4 text-primary" />
-                  <CardTitle className="text-sm font-medium text-card-foreground">Trend Analysis</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="p-3">
-                <div className="h-48">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsLineChart data={lineData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground) / 0.2)" />
-                      <XAxis 
-                        dataKey={headers[0]} 
-                        tick={{ fontSize: 12 }}
-                        stroke="hsl(var(--muted-foreground))"
-                      />
-                      <YAxis 
-                        tick={{ fontSize: 12 }}
-                        stroke="hsl(var(--muted-foreground))"
-                      />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'hsl(var(--card))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '6px'
-                        }}
-                      />
-                      {numericColumns.slice(0, 2).map((col, index) => (
-                        <Line 
-                          key={col}
-                          type="monotone" 
-                          dataKey={col} 
-                          stroke={COLORS[index % COLORS.length]}
-                          strokeWidth={2}
+            {/* Line Chart for Trends */}
+            {recommendedCharts.includes('line') && smartNumericCols.length >= 2 && (
+              <Card className="bg-card">
+                <CardHeader className="p-3">
+                  <div className="flex items-center gap-2">
+                    <LineChart className="w-4 h-4 text-primary" />
+                    <CardTitle className="text-sm font-medium text-card-foreground">
+                      Trend Analysis: {smartNumericCols.slice(0, 2).join(' vs ')}
+                    </CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-3">
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsLineChart data={lineData.slice(0, 20)}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground) / 0.2)" />
+                        <XAxis 
+                          dataKey={headers[0]} 
+                          tick={{ fontSize: 11 }}
+                          stroke="hsl(var(--muted-foreground))"
                         />
-                      ))}
-                    </RechartsLineChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
+                        <YAxis 
+                          tick={{ fontSize: 11 }}
+                          stroke="hsl(var(--muted-foreground))"
+                        />
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--card))',
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '6px',
+                            fontSize: '12px'
+                          }}
+                        />
+                        <Legend wrapperStyle={{ fontSize: '12px' }} />
+                        {smartNumericCols.slice(0, 2).map((col, index) => (
+                          <Line 
+                            key={col}
+                            type="monotone" 
+                            dataKey={col} 
+                            stroke={COLORS[index % COLORS.length]}
+                            strokeWidth={2}
+                            name={col}
+                          />
+                        ))}
+                      </RechartsLineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-            {/* Area Chart */}
-            <Card className="bg-card">
-              <CardHeader className="p-3">
-                <div className="flex items-center gap-2">
-                  <PieChart className="w-4 h-4 text-primary" />
-                  <CardTitle className="text-sm font-medium text-card-foreground">Area Analysis</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="p-3">
-                <div className="h-48">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={lineData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground) / 0.2)" />
-                      <XAxis 
-                        dataKey={headers[0]} 
-                        tick={{ fontSize: 12 }}
-                        stroke="hsl(var(--muted-foreground))"
-                      />
-                      <YAxis 
-                        tick={{ fontSize: 12 }}
-                        stroke="hsl(var(--muted-foreground))"
-                      />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'hsl(var(--card))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '6px'
-                        }}
-                      />
-                      {numericColumns.slice(0, 1).map((col, index) => (
-                        <Area 
-                          key={col}
-                          type="monotone" 
-                          dataKey={col} 
-                          stroke={COLORS[index % COLORS.length]}
-                          fill={COLORS[index % COLORS.length]}
-                          fillOpacity={0.6}
+            {/* Area Chart for Cumulative Analysis */}
+            {recommendedCharts.includes('area') && smartNumericCols.length >= 1 && (
+              <Card className="bg-card">
+                <CardHeader className="p-3">
+                  <div className="flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-primary" />
+                    <CardTitle className="text-sm font-medium text-card-foreground">
+                      Cumulative {smartNumericCols[0]} Analysis
+                    </CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-3">
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={lineData.slice(0, 15)}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground) / 0.2)" />
+                        <XAxis 
+                          dataKey={headers[0]} 
+                          tick={{ fontSize: 11 }}
+                          stroke="hsl(var(--muted-foreground))"
                         />
-                      ))}
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
+                        <YAxis 
+                          tick={{ fontSize: 11 }}
+                          stroke="hsl(var(--muted-foreground))"
+                        />
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--card))',
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '6px',
+                            fontSize: '12px'
+                          }}
+                        />
+                        <Legend wrapperStyle={{ fontSize: '12px' }} />
+                        {smartNumericCols.slice(0, 2).map((col, index) => (
+                          <Area 
+                            key={col}
+                            type="monotone" 
+                            dataKey={col} 
+                            stroke={COLORS[index % COLORS.length]}
+                            fill={COLORS[index % COLORS.length]}
+                            fillOpacity={0.3}
+                            name={col}
+                          />
+                        ))}
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Pie Chart for Categorical Distribution */}
+            {recommendedCharts.includes('pie') && smartCategoricalCols.length > 0 && (
+              <Card className="bg-card">
+                <CardHeader className="p-3">
+                  <div className="flex items-center gap-2">
+                    <PieChart className="w-4 h-4 text-primary" />
+                    <CardTitle className="text-sm font-medium text-card-foreground">
+                      {smartCategoricalCols[0]} Distribution
+                    </CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-3">
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsPieChart>
+                        <Pie
+                          data={pieData.slice(0, 6)}
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={80}
+                          dataKey={smartNumericCols[0] || 'value'}
+                          nameKey={smartCategoricalCols[0] || headers[0]}
+                        >
+                          {pieData.slice(0, 6).map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--card))',
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '6px',
+                            fontSize: '12px'
+                          }}
+                        />
+                        <Legend wrapperStyle={{ fontSize: '12px' }} />
+                      </RechartsPieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* AI Insights Section */}

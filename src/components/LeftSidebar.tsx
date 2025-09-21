@@ -23,6 +23,7 @@ interface LeftSidebarProps {
   onNewFolder?: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  onShowDashboard?: () => void;
 }
 
 export const LeftSidebar = ({ 
@@ -33,7 +34,8 @@ export const LeftSidebar = ({
   onNewFile = () => {}, 
   onNewFolder = () => {},
   isCollapsed = false,
-  onToggleCollapse = () => {}
+  onToggleCollapse = () => {},
+  onShowDashboard = () => {}
 }: LeftSidebarProps) => {
   const sidebarItems = [
     { id: 'explorer', icon: Files, label: 'Explorer', tooltip: 'File Explorer' },
@@ -71,7 +73,13 @@ export const LeftSidebar = ({
                     ? 'bg-sidebar-active text-primary'
                     : 'text-sidebar-foreground hover:text-foreground'
                 }`}
-                onClick={() => onPanelChange(item.id)}
+                onClick={() => {
+                  if (item.id === 'dashboard') {
+                    onShowDashboard();
+                  } else {
+                    onPanelChange(item.id);
+                  }
+                }}
                 title={item.tooltip}
               >
                 <Icon className="w-5 h-5" />
