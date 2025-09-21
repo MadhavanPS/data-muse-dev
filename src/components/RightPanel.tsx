@@ -33,11 +33,12 @@ interface RightPanelProps {
   onCodeUpdate: (newContent: string) => void;
   selectedCodeContext?: string;
   onClearCodeContext?: () => void;
+  onShowInlineDiff?: (originalCode: string, newCode: string) => void;
 }
 
 import { cleanDataset } from '@/utils/csvProcessing';
 
-export const RightPanel = ({ onFileUpload, onCodeUpdate, selectedCodeContext, onClearCodeContext }: RightPanelProps) => {
+export const RightPanel = ({ onFileUpload, onCodeUpdate, selectedCodeContext, onClearCodeContext, onShowInlineDiff }: RightPanelProps) => {
   const { toast } = useToast();
   const { activeTab, getActiveContent, getAllFilesContent, selectedText } = useEditor();
   const [message, setMessage] = useState('');
@@ -135,15 +136,21 @@ export const RightPanel = ({ onFileUpload, onCodeUpdate, selectedCodeContext, on
       if (error) throw error;
       
       if (data.success) {
-        // If it's code generation/refactoring, show approval dialog with diff
+        // If it's code generation/refactoring, show inline diff in editor
         if (requestType === 'code_generation' || requestType === 'code_refactor') {
-          setApprovalDialog({
-            isOpen: true,
-            generatedCode: data.content,
-            requestType: data.requestType,
-            originalCode: requestType === 'code_refactor' ? selectedText || currentContent : undefined,
-            showDiff: true
-          });
+          const originalCodeForDiff = requestType === 'code_refactor' ? selectedText || currentContent : currentContent;
+          if (onShowInlineDiff) {
+            onShowInlineDiff(originalCodeForDiff, data.content);
+          }
+          
+          // Add a message indicating diff is showing
+          const diffMsg: Message = {
+            id: (Date.now() + 1).toString(),
+            type: 'ai',
+            content: `✨ I've generated ${requestType === 'code_refactor' ? 'refactored' : 'new'} code for you! Check the editor above - you'll see the changes highlighted with green (additions) and red (removals). Click **Apply** to accept the changes or **Reject** to dismiss them.`,
+            timestamp: new Date()
+          };
+          setMessages(prev => [...prev, diffMsg]);
         } else {
           // For other requests, just show the response
           const aiResponseMsg: Message = {
@@ -374,24 +381,9 @@ export const RightPanel = ({ onFileUpload, onCodeUpdate, selectedCodeContext, on
         </CardContent>
       </Card>
 
-      {/* Code Approval with Diff Viewer */}
-      {approvalDialog.isOpen && approvalDialog.showDiff && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="w-full max-w-5xl max-h-[90vh] overflow-auto">
-            <DiffViewer
-              originalCode={approvalDialog.originalCode || ''}
-              newCode={approvalDialog.generatedCode}
-              onApprove={handleApproveCode}
-              onReject={handleRejectCode}
-              title={`${approvalDialog.requestType === 'code_refactor' ? 'Code Refactoring' : 'Generated Code'} Preview`}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Fallback Code Approval Dialog */}
+      {/* Code Approval Dialog (for non-diff cases) */}
       <CodeApprovalDialog
-        isOpen={approvalDialog.isOpen && !approvalDialog.showDiff}
+        isOpen={approvalDialog.isOpen}
         onClose={closeApprovalDialog}
         onApprove={handleApproveCode}
         onReject={handleRejectCode}

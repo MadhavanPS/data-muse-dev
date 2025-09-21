@@ -25,6 +25,12 @@ const IDE = () => {
     '1': ''
   });
   const [selectedCodeContext, setSelectedCodeContext] = useState<string>('');
+  const [pendingChanges, setPendingChanges] = useState<{
+    originalCode: string;
+    newCode: string;
+    onApprove: () => void;
+    onReject: () => void;
+  } | null>(null);
 
   // File system structure for explorer
   const [fileSystemItems, setFileSystemItems] = useState<FileSystemItem[]>([
@@ -271,6 +277,42 @@ const IDE = () => {
     setSelectedCodeContext('');
   };
 
+  const handleShowInlineDiff = (originalCode: string, newCode: string) => {
+    setPendingChanges({
+      originalCode,
+      newCode,
+      onApprove: () => {
+        // Apply the new code
+        if (activeTab) {
+          setFileContents(prev => ({
+            ...prev,
+            [activeTab.id]: newCode
+          }));
+          
+          setTabs(prev => prev.map(tab => 
+            tab.id === activeTab.id 
+              ? { ...tab, isDirty: true }
+              : tab
+          ));
+          
+          toast({
+            title: "Changes Applied",
+            description: "The AI-generated code has been applied successfully!"
+          });
+        }
+        setPendingChanges(null);
+      },
+      onReject: () => {
+        // Clear pending changes
+        setPendingChanges(null);
+        toast({
+          title: "Changes Rejected",
+          description: "The AI-generated changes have been discarded."
+        });
+      }
+    });
+  };
+
   return (
     <EditorProvider tabs={tabs} fileContents={fileContents}>
       <div className="h-screen bg-background text-foreground flex flex-col">
@@ -313,6 +355,7 @@ const IDE = () => {
                 onSave={handleSave}
                 onRun={handleRun}
                 onSendToAssistant={handleSendToAssistant}
+                pendingChanges={pendingChanges}
               />
             )}
           </div>
@@ -323,6 +366,7 @@ const IDE = () => {
             onCodeUpdate={handleCodeUpdate}
             selectedCodeContext={selectedCodeContext}
             onClearCodeContext={handleClearCodeContext}
+            onShowInlineDiff={handleShowInlineDiff}
           />
         </div>
 
