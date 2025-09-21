@@ -12,10 +12,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
 import { useEditor } from '@/contexts/EditorContext';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { DataVisualization } from '@/components/DataVisualization';
 
 interface DataVisualizationTabProps {
@@ -25,7 +22,6 @@ interface DataVisualizationTabProps {
 export const DataVisualizationTab = ({ className = '' }: DataVisualizationTabProps) => {
   const [activeTab, setActiveTab] = useState('visualization');
   const [selectedChart, setSelectedChart] = useState('bar');
-  const { toast } = useToast();
   const { fileContents, getAllFilesContent } = useEditor();
   
   const chartTypes = [
@@ -39,26 +35,11 @@ export const DataVisualizationTab = ({ className = '' }: DataVisualizationTabPro
     { id: 'ai', icon: Sparkles, label: 'AI Suggest' },
   ];
 
-  // Get CSV data from current files
+  // Get CSV data from currently open tabs (EditorContext)
   const getCsvData = () => {
-    const allFiles = getAllFilesContent();
-    
-    // Find CSV files
-    const csvFiles = Object.entries(allFiles).filter(([filename, fileData]) => 
-      filename.toLowerCase().endsWith('.csv')
-    );
-    
-    if (csvFiles.length > 0) {
-      const [filename, fileData] = csvFiles[0];
-      // Handle different file data structures
-      const content = typeof fileData === 'string' ? fileData : fileData?.content || '';
-      return {
-        content,
-        filename
-      };
-    }
-    
-    return null;
+    const allFiles = getAllFilesContent(); // [{ fileName, content, type }]
+    const csv = allFiles.find(f => f.fileName.toLowerCase().endsWith('.csv') && (f.content?.trim()?.length || 0) > 0);
+    return csv ? { content: csv.content, filename: csv.fileName } : null;
   };
 
   return (
