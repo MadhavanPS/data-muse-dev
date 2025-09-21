@@ -199,18 +199,22 @@ def analyze_data(df):
       </div>
 
       {/* Editor Content */}
-      <div className="flex-1 flex">
-        {pendingChanges ? (
-          /* Show Diff View */
-          <InlineCodeDiff
-            originalCode={pendingChanges.originalCode}
-            newCode={pendingChanges.newCode}
-            language={language}
-            onApprove={pendingChanges.onApprove}
-            onReject={pendingChanges.onReject}
-            className="w-full h-full"
-          />
-        ) : (
+      <div className="flex-1 flex relative">
+        {pendingChanges && (
+          /* Show Diff Overlay */
+          <div className="absolute inset-0 z-20 bg-editor-background">
+            <InlineCodeDiff
+              originalCode={pendingChanges.originalCode}
+              newCode={pendingChanges.newCode}
+              language={language}
+              onApprove={pendingChanges.onApprove}
+              onReject={pendingChanges.onReject}
+              className="w-full h-full"
+            />
+          </div>
+        )}
+        
+        {/* Always show the original editor content */}
           <>
             {/* Line Numbers */}
             <div className="w-12 bg-editor-background border-r border-panel-border text-editor-line-numbers text-sm font-mono flex flex-col">
@@ -261,7 +265,6 @@ def analyze_data(df):
               )}
             </div>
           </>
-        )}
       </div>
 
       {/* Status Bar */}

@@ -26,47 +26,51 @@ export const InlineCodeDiff = ({
   className = ""
 }: InlineCodeDiffProps) => {
   const [diffLines, setDiffLines] = useState<DiffLine[]>([]);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    const generateDiff = () => {
+    const generateInlineDiff = () => {
+      // For inline changes, we want to show the original code with changes highlighted
+      // This creates a better context-aware diff
+      
       const originalLines = originalCode.split('\n');
-      const newLines = newCode.split('\n');
+      const newCodeLines = newCode.split('\n');
       const diff: DiffLine[] = [];
       
       let lineNumber = 1;
-      let i = 0, j = 0;
       
-      while (i < originalLines.length || j < newLines.length) {
+      // Simple algorithm: compare line by line and highlight differences
+      const maxLines = Math.max(originalLines.length, newCodeLines.length);
+      
+      for (let i = 0; i < maxLines; i++) {
+        const originalLine = originalLines[i];
+        const newLine = newCodeLines[i];
+        
         if (i >= originalLines.length) {
-          // Remaining lines are additions
-          diff.push({ type: 'added', content: newLines[j], lineNumber });
-          j++;
-          lineNumber++;
-        } else if (j >= newLines.length) {
-          // Remaining lines are removals
-          diff.push({ type: 'removed', content: originalLines[i], lineNumber: -1 });
-          i++;
-        } else if (originalLines[i] === newLines[j]) {
-          // Lines are the same
-          diff.push({ type: 'unchanged', content: originalLines[i], lineNumber });
-          i++;
-          j++;
-          lineNumber++;
+          // New line added
+          diff.push({ type: 'added', content: newLine || '', lineNumber });
+        } else if (i >= newCodeLines.length) {
+          // Line removed
+          diff.push({ type: 'removed', content: originalLine || '', lineNumber: -1 });
+        } else if (originalLine === newLine) {
+          // Line unchanged
+          diff.push({ type: 'unchanged', content: originalLine, lineNumber });
         } else {
-          // Lines are different - show removal then addition
-          diff.push({ type: 'removed', content: originalLines[i], lineNumber: -1 });
-          diff.push({ type: 'added', content: newLines[j], lineNumber });
-          i++;
-          j++;
-          lineNumber++;
+          // Line modified - show both
+          if (originalLine.trim()) {
+            diff.push({ type: 'removed', content: originalLine, lineNumber: -1 });
+          }
+          if (newLine.trim()) {
+            diff.push({ type: 'added', content: newLine, lineNumber });
+          }
         }
+        
+        lineNumber++;
       }
       
       setDiffLines(diff);
     };
 
-    generateDiff();
+    generateInlineDiff();
   }, [originalCode, newCode]);
 
   const getLineStyle = (type: DiffLine['type']) => {
