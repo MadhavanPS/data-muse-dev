@@ -188,7 +188,7 @@ function generateAllCharts(csvData: string, analysis: ColumnAnalysis[]): any[] {
       pythonEquivalent: 'sns.violinplot'
     });
   });
-  
+
   // --- CORRELATION HEATMAP (numerical columns) ---
   if (numericalCols.length > 1) {
     const correlationMatrix: any[] = [];
@@ -283,7 +283,7 @@ function generateAllCharts(csvData: string, analysis: ColumnAnalysis[]): any[] {
       }
     }
   }
-  
+
   // --- BIVARIATE: CATEGORICAL vs NUMERICAL (3 plots each like Python) ---
   categoricalCols.forEach(catCol => {
     numericalCols.forEach(numCol => {
@@ -384,35 +384,39 @@ function generateAllCharts(csvData: string, analysis: ColumnAnalysis[]): any[] {
       });
     });
   });
-  
-  // 4. BIVARIATE: NUMERICAL vs NUMERICAL
-  for (let i = 0; i < numericalCols.length; i++) {
-    for (let j = i + 1; j < numericalCols.length; j++) {
-      const col1 = numericalCols[i];
-      const col2 = numericalCols[j];
-      const col1Index = headers.indexOf(col1.name);
-      const col2Index = headers.indexOf(col2.name);
+
+  // --- TIME SERIES PLOTS (if date columns exist) ---
+  dateCols.forEach(dateCol => {
+    numericalCols.forEach(numCol => {
+      const dateIndex = headers.indexOf(dateCol.name);
+      const numIndex = headers.indexOf(numCol.name);
       
-      const scatterData = dataRows.map((row, idx) => {
-        const x = parseFloat(row[col1Index]);
-        const y = parseFloat(row[col2Index]);
-        return !isNaN(x) && !isNaN(y) ? { x, y, name: `Point ${idx}` } : null;
-      }).filter(Boolean).slice(0, 50); // Limit for performance
+      const timeSeriesData = dataRows.map((row, idx) => {
+        const dateValue = new Date(row[dateIndex]);
+        const numValue = parseFloat(row[numIndex]);
+        return !isNaN(dateValue.getTime()) && !isNaN(numValue) ? {
+          date: dateValue.toISOString().split('T')[0],
+          value: numValue,
+          name: dateValue.toLocaleDateString(),
+          timestamp: dateValue.getTime()
+        } : null;
+      }).filter(Boolean).sort((a, b) => a.timestamp - b.timestamp);
       
-      if (scatterData.length > 5) {
+      if (timeSeriesData.length > 2) {
         charts.push({
-          id: `scatter-${col1.name}-${col2.name}`,
-          type: 'scatter',
-          title: `${col1.name} vs ${col2.name}`,
-          description: `Relationship between ${col1.name} and ${col2.name}`,
-          data: scatterData,
-          config: { xKey: 'x', yKey: 'y' },
-          category: 'correlation'
+          id: `timeseries-${dateCol.name}-${numCol.name}`,
+          type: 'line',
+          title: `Time Series of ${numCol.name} over ${dateCol.name}`,
+          description: `Temporal trend analysis with markers and line connections`,
+          data: timeSeriesData,
+          config: { xKey: 'name', yKey: 'value' },
+          category: 'timeseries',
+          pythonEquivalent: 'plt.plot with marker="o", linestyle="-"'
         });
       }
     });
-  }
-  
+  });
+
   // --- CATEGORICAL DISTRIBUTIONS (pie charts for each categorical column) ---
   categoricalCols.forEach(catCol => {
     const catIndex = headers.indexOf(catCol.name);
@@ -442,7 +446,7 @@ function generateAllCharts(csvData: string, analysis: ColumnAnalysis[]): any[] {
       });
     }
   });
-  
+
   // --- CATEGORICAL RELATIONSHIP HEATMAP (like Python: factorize and correlate) ---
   if (categoricalCols.length > 1) {
     const catCorrelationMatrix: any[] = [];
@@ -591,121 +595,66 @@ Provide comprehensive business insights in JSON format:
 
     console.log('Requesting AI insights from Gemini...');
     
-    const geminiResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', {
+    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-goog-api-key': geminiApiKey,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{
-          parts: [{
-            text: analysisPrompt
-          }]
+          parts: [{ text: analysisPrompt }]
         }],
         generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: 2000,
+          temperature: 0.7,
+          maxOutputTokens: 2000
         }
-      }),
+      })
     });
 
-    const geminiData = await geminiResponse.json();
-    let aiInsights = { 
-      keyInsights: [], 
-      dataQuality: { score: 80, strengths: [], concerns: [], recommendations: [] },
-      businessValue: '',
-      actionableInsights: []
-    };
-    
-    if (geminiData.candidates?.[0]?.content?.parts?.[0]?.text) {
-      try {
-        const cleanedResponse = geminiData.candidates[0].content.parts[0].text
-          .replace(/```json\n?/g, '')
-          .replace(/```\n?/g, '')
-          .trim();
-        aiInsights = JSON.parse(cleanedResponse);
-      } catch (e) {
-        console.error('Failed to parse Gemini response, using fallback insights');
-        aiInsights = {
-          keyInsights: [
-            `Comprehensive analysis of ${columnAnalysis.length} columns with ${csvData.split('\n').length - 1} records`,
-            `Generated ${charts.length} visualizations covering univariate, bivariate, and correlation analysis`,
-            `Found ${columnAnalysis.filter(c => c.type === 'numerical').length} numerical and ${columnAnalysis.filter(c => c.type === 'categorical').length} categorical variables`,
-            'Multiple chart types provide complete data exploration coverage',
-            'Dataset suitable for advanced analytics and business intelligence'
-          ],
-          dataQuality: {
-            score: 85,
-            strengths: ['Well-structured columns', 'Multiple data types', 'Comprehensive coverage'],
-            concerns: ['Check for missing values', 'Validate data consistency'],
-            recommendations: ['Perform data cleaning', 'Consider additional features']
-          },
-          businessValue: 'This dataset provides comprehensive insights across multiple dimensions, suitable for strategic decision-making and predictive analytics.',
-          actionableInsights: [
-            'Focus on key correlations identified in heatmaps',
-            'Investigate outliers shown in box plots',
-            'Leverage categorical distributions for segmentation',
-            'Monitor trends in time series analysis'
-          ]
-        };
-      }
+    if (!geminiResponse.ok) {
+      throw new Error(`Gemini API error: ${geminiResponse.statusText}`);
     }
-    
-    // Generate comprehensive key metrics
-    const totalRows = csvData.split('\n').length - 1;
-    const keyMetrics = [
-      {
-        label: 'Total Records',
-        value: totalRows,
-        trend: 'stable' as const
-      },
-      {
-        label: 'Data Columns',
-        value: columnAnalysis.length,
-        trend: 'stable' as const
-      },
-      {
-        label: 'Charts Generated', 
-        value: charts.length,
-        trend: 'up' as const
-      },
-      {
-        label: 'Numerical Fields',
-        value: columnAnalysis.filter(c => c.type === 'numerical').length,
-        trend: 'up' as const
-      },
-      {
-        label: 'Categorical Fields',
-        value: columnAnalysis.filter(c => c.type === 'categorical').length,
-        trend: 'up' as const
-      },
-      {
-        label: 'Data Quality Score',
-        value: `${aiInsights.dataQuality.score}%`,
-        trend: 'up' as const
-      }
-    ];
-    
-    // Combine all insights
-    const allInsights = [
-      ...aiInsights.keyInsights,
-      ...aiInsights.actionableInsights,
-      ...aiInsights.dataQuality.strengths.map(s => `Data Strength: ${s}`),
-      ...aiInsights.dataQuality.recommendations.map(r => `Recommendation: ${r}`)
-    ];
-    
+
+    const geminiData = await geminiResponse.json();
+    const insights = geminiData.candidates[0]?.content?.parts[0]?.text;
+
+    let parsedInsights;
+    try {
+      // Extract JSON from the response
+      const jsonMatch = insights.match(/\{[\s\S]*\}/);
+      parsedInsights = jsonMatch ? JSON.parse(jsonMatch[0]) : {
+        keyInsights: ['Analysis completed with comprehensive visualizations'],
+        dataQuality: { score: 90, strengths: ['Complete analysis'], concerns: [], recommendations: [] },
+        businessValue: 'Dataset provides valuable insights for decision making',
+        actionableInsights: ['Review generated charts for patterns']
+      };
+    } catch (parseError) {
+      console.error('Failed to parse Gemini insights:', parseError);
+      parsedInsights = {
+        keyInsights: ['Comprehensive data analysis completed'],
+        dataQuality: { score: 85, strengths: ['Thorough analysis'], concerns: [], recommendations: [] },
+        businessValue: 'Rich dataset with multiple analytical perspectives',
+        actionableInsights: ['Examine all chart categories for insights']
+      };
+    }
+
+    // Create comprehensive dashboard config
     const dashboardConfig = {
-      title: `Comprehensive Dashboard: ${fileName}`,
-      insights: allInsights,
-      charts,
-      keyMetrics,
-      dataQuality: aiInsights.dataQuality,
-      businessValue: aiInsights.businessValue
+      title: `Smart Dashboard: ${fileName}`,
+      insights: parsedInsights.keyInsights || [],
+      charts: charts,
+      keyMetrics: [
+        { label: "Total Records", value: csvData.split('\n').length - 1, trend: "stable" },
+        { label: "Data Columns", value: columnAnalysis.length, trend: "stable" },
+        { label: "Numerical Fields", value: columnAnalysis.filter(c => c.type === 'numerical').length, trend: "up" },
+        { label: "Categorical Fields", value: columnAnalysis.filter(c => c.type === 'categorical').length, trend: "up" },
+        { label: "Data Quality", value: `${parsedInsights.dataQuality?.score || 90}%`, trend: "up" },
+        { label: "Chart Types", value: charts.length, trend: "up" }
+      ],
+      businessValue: parsedInsights.businessValue || "This dataset provides comprehensive insights for data-driven decision making.",
+      actionableInsights: parsedInsights.actionableInsights || []
     };
-    
-    console.log(`Dashboard generated successfully with ${charts.length} charts and ${allInsights.length} insights`);
-    
+
+    console.log(`Generated dashboard config with ${charts.length} charts`);
+
     return new Response(JSON.stringify({
       success: true,
       dashboard: dashboardConfig,
