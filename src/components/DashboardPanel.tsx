@@ -137,7 +137,7 @@ export const DashboardPanel = ({
   };
 
   const renderChart = (chart: any, index: number) => {
-    const chartColors = COLORS.slice(0, Math.max(chart.data?.length || 1, 3));
+    const chartColors = COLORS.slice(0, Math.max(chart.data?.length || 1, 8));
     const height = isFullscreen ? 400 : 300;
     
     switch (chart.type) {
@@ -262,6 +262,59 @@ export const DashboardPanel = ({
           </ResponsiveContainer>
         );
       
+      case 'heatmap':
+        return (
+          <ResponsiveContainer width="100%" height={height}>
+            <div className="grid grid-cols-4 gap-1 p-4">
+              {chart.data?.map((item: any, idx: number) => (
+                <div 
+                  key={idx}
+                  className="aspect-square flex items-center justify-center text-xs font-medium text-white rounded"
+                  style={{
+                    backgroundColor: `hsl(${200 + item.value * 60}, 70%, ${50 + item.value * 20}%)`,
+                    opacity: 0.8 + Math.abs(item.value) * 0.2
+                  }}
+                  title={`${item.x} vs ${item.y}: ${item.value}`}
+                >
+                  {item.value?.toFixed(2)}
+                </div>
+              ))}
+            </div>
+          </ResponsiveContainer>
+        );
+
+      case 'boxplot':
+        return (
+          <ResponsiveContainer width="100%" height={height}>
+            <BarChart data={chart.data} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
+              <XAxis 
+                dataKey="name"
+                tick={{ fill: '#9CA3AF', fontSize: 12 }} 
+                angle={-45}
+                textAnchor="end"
+                height={80}
+              />
+              <YAxis tick={{ fill: '#9CA3AF', fontSize: 12 }} />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: '#1F2937', 
+                  border: '1px solid #374151', 
+                  color: '#F3F4F6',
+                  borderRadius: '8px'
+                }}
+                formatter={(value, name) => [typeof value === 'number' ? value.toFixed(2) : value, name]}
+              />
+              <Legend />
+              <Bar dataKey="min" fill="transparent" />
+              <Bar dataKey="q1" fill={chartColors[0]} opacity={0.7} />
+              <Bar dataKey="median" fill={chartColors[1]} />
+              <Bar dataKey="q3" fill={chartColors[2]} opacity={0.7} />
+              <Bar dataKey="max" fill="transparent" />
+            </BarChart>
+          </ResponsiveContainer>
+        );
+
       default:
         return <div className="flex items-center justify-center h-64 text-muted-foreground">Unsupported chart type</div>;
     }
@@ -383,6 +436,32 @@ export const DashboardPanel = ({
           </div>
         ) : (
           <div className="space-y-6">
+            {/* Chart Categories */}
+            {dashboardData.charts && dashboardData.charts.length > 0 && (
+              <div className="grid gap-4 mb-6">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5" />
+                  Chart Categories Overview
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                  {[
+                    { category: 'univariate', label: 'Univariate', icon: '📊', color: 'bg-blue-100 text-blue-800' },
+                    { category: 'bivariate', label: 'Bivariate', icon: '📈', color: 'bg-green-100 text-green-800' },
+                    { category: 'correlation', label: 'Correlation', icon: '🔗', color: 'bg-purple-100 text-purple-800' },
+                    { category: 'categorical', label: 'Categorical', icon: '🥧', color: 'bg-orange-100 text-orange-800' },
+                    { category: 'timeseries', label: 'Time Series', icon: '⏱️', color: 'bg-cyan-100 text-cyan-800' }
+                  ].map(cat => {
+                    const count = dashboardData.charts.filter((c: any) => c.category === cat.category).length;
+                    return count > 0 ? (
+                      <Badge key={cat.category} className={`${cat.color} justify-center py-2`}>
+                        {cat.icon} {cat.label}: {count}
+                      </Badge>
+                    ) : null;
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Charts Grid */}
             <div className={`grid gap-6 ${isFullscreen ? 'grid-cols-2' : 'grid-cols-1'}`}>
               {dashboardData.charts?.map((chart: any, index: number) => (
@@ -393,10 +472,19 @@ export const DashboardPanel = ({
                       {chart.type === 'line' && <LineChartIcon className="w-6 h-6 text-green-500" />}
                       {chart.type === 'pie' && <PieChartIcon className="w-6 h-6 text-orange-500" />}
                       {chart.type === 'scatter' && <Target className="w-6 h-6 text-purple-500" />}
+                      {chart.type === 'heatmap' && <Activity className="w-6 h-6 text-red-500" />}
+                      {chart.type === 'boxplot' && <AlertCircle className="w-6 h-6 text-yellow-500" />}
                       <span className="font-bold">{chart.title}</span>
-                      <Badge variant="outline" className="ml-auto">
-                        {chart.data?.length || 0} points
-                      </Badge>
+                      <div className="ml-auto flex items-center gap-2">
+                        <Badge variant="outline">
+                          {chart.data?.length || 0} points
+                        </Badge>
+                        {chart.category && (
+                          <Badge variant="secondary" className="text-xs">
+                            {chart.category}
+                          </Badge>
+                        )}
+                      </div>
                     </CardTitle>
                     {chart.description && (
                       <p className="text-sm text-muted-foreground mt-2">{chart.description}</p>

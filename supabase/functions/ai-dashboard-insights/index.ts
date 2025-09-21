@@ -19,34 +19,11 @@ interface ColumnAnalysis {
     mean?: number;
     median?: number;
     nullCount: number;
+    quartiles?: number[];
   };
 }
 
-interface DashboardConfig {
-  title: string;
-  insights: string[];
-  charts: Array<{
-    id: string;
-    type: 'bar' | 'line' | 'pie' | 'scatter' | 'heatmap';
-    title: string;
-    description: string;
-    data: any[];
-    config: {
-      xKey?: string;
-      yKey?: string;
-      dataKey?: string;
-      [key: string]: any;
-    };
-  }>;
-  keyMetrics: Array<{
-    label: string;
-    value: string | number;
-    change?: string;
-    trend: 'up' | 'down' | 'stable';
-  }>;
-}
-
-function analyzeCSV(csvData: string): ColumnAnalysis[] {
+function analyzeCSV(csvData: string, maxUniqueCat: number = 20): ColumnAnalysis[] {
   const lines = csvData.split('\n').filter(line => line.trim());
   if (lines.length < 2) return [];
   
@@ -63,21 +40,36 @@ function analyzeCSV(csvData: string): ColumnAnalysis[] {
     const numericValues = columnValues.map(v => parseFloat(v)).filter(v => !isNaN(v));
     const isNumeric = numericValues.length > columnValues.length * 0.7;
     
-    // Check for dates (basic detection)
+    // Check for dates
     const dateValues = columnValues.filter(v => {
       const parsed = new Date(v);
       return !isNaN(parsed.getTime()) && v.length > 4;
     });
     const isDate = dateValues.length > columnValues.length * 0.3;
     
-    const type: 'categorical' | 'numerical' | 'date' = 
-      isDate ? 'date' : isNumeric ? 'numerical' : 'categorical';
+    // Determine if categorical (object type OR low unique count)
+    const uniqueCount = new Set(columnValues).size;
+    const isCategorical = !isNumeric && !isDate;
+    const isCategoricalByCount = uniqueCount <= maxUniqueCat;
+    
+    let type: 'categorical' | 'numerical' | 'date' = 'categorical';
+    if (isDate) {
+      type = 'date';
+    } else if (isNumeric && !isCategoricalByCount) {
+      type = 'numerical';
+    } else {
+      type = 'categorical';
+    }
     
     const stats = type === 'numerical' ? {
       min: Math.min(...numericValues),
       max: Math.max(...numericValues),
       mean: numericValues.reduce((a, b) => a + b, 0) / numericValues.length,
-      median: numericValues.sort()[Math.floor(numericValues.length / 2)],
+      median: numericValues.sort((a, b) => a - b)[Math.floor(numericValues.length / 2)],
+      quartiles: [
+        numericValues.sort((a, b) => a - b)[Math.floor(numericValues.length * 0.25)],
+        numericValues.sort((a, b) => a - b)[Math.floor(numericValues.length * 0.75)]
+      ],
       nullCount: dataRows.length - columnValues.length
     } : {
       nullCount: dataRows.length - columnValues.length
@@ -86,135 +78,338 @@ function analyzeCSV(csvData: string): ColumnAnalysis[] {
     return {
       name: header,
       type,
-      uniqueCount: new Set(columnValues).size,
+      uniqueCount,
       sampleValues: columnValues.slice(0, 5),
       stats
     };
   });
 }
 
-function generateChartData(csvData: string, analysis: ColumnAnalysis[]): any[] {
+function generateAllCharts(csvData: string, analysis: ColumnAnalysis[]): any[] {
   const lines = csvData.split('\n').filter(line => line.trim());
   const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-  const dataRows = lines.slice(1, 21).map(line => // First 20 rows for performance
+  const dataRows = lines.slice(1, 101).map(line => // Use first 100 rows for performance
     line.split(',').map(cell => cell.trim().replace(/"/g, ''))
   );
   
-  const charts = [];
+  const charts: any[] = [];
   
-  // Find categorical and numerical columns
-  const categoricalCols = analysis.filter(col => col.type === 'categorical' && col.uniqueCount <= 10);
+  // Get column classifications
+  const categoricalCols = analysis.filter(col => col.type === 'categorical');
   const numericalCols = analysis.filter(col => col.type === 'numerical');
+  const dateCols = analysis.filter(col => col.type === 'date');
   
-  // Generate charts based on column types (similar to Python code)
+  console.log(`Found: ${categoricalCols.length} categorical, ${numericalCols.length} numerical, ${dateCols.length} date columns`);
   
-  // 1. Categorical distribution (pie/bar chart)
-  if (categoricalCols.length > 0) {
-    const catCol = categoricalCols[0];
-    const catIndex = headers.indexOf(catCol.name);
+  // 1. UNIVARIATE NUMERICAL ANALYSIS
+  numericalCols.forEach(numCol => {
+    const colIndex = headers.indexOf(numCol.name);
+    const values = dataRows.map(row => parseFloat(row[colIndex])).filter(v => !isNaN(v));
     
-    // Count occurrences for pie/bar chart
-    const counts: { [key: string]: number } = {};
-    dataRows.forEach(row => {
-      const value = row[catIndex];
-      counts[value] = (counts[value] || 0) + 1;
-    });
+    if (values.length === 0) return;
     
-    charts.push({
-      id: 'categorical-distribution',
-      type: 'pie',
-      title: `Distribution of ${catCol.name}`,
-      description: `Shows the breakdown of different ${catCol.name} categories`,
-      data: Object.entries(counts).map(([name, value]) => ({ name, value })),
-      config: { dataKey: 'value' }
-    });
-  }
-  
-  // 2. Numerical correlation (scatter plot)
-  if (numericalCols.length >= 2) {
-    const col1 = numericalCols[0];
-    const col2 = numericalCols[1];
-    const col1Index = headers.indexOf(col1.name);
-    const col2Index = headers.indexOf(col2.name);
-    
-    charts.push({
-      id: 'numerical-correlation',
-      type: 'scatter',
-      title: `${col1.name} vs ${col2.name}`,
-      description: `Relationship between ${col1.name} and ${col2.name}`,
-      data: dataRows.map(row => ({
-        x: parseFloat(row[col1Index]) || 0,
-        y: parseFloat(row[col2Index]) || 0,
-        name: `Point ${row[0] || 'N/A'}`
-      })).filter(d => d.x !== 0 && d.y !== 0),
-      config: { xKey: 'x', yKey: 'y' }
-    });
-  }
-  
-  // 3. Categorical vs Numerical (bar chart)
-  if (categoricalCols.length > 0 && numericalCols.length > 0) {
-    const catCol = categoricalCols[0];
-    const numCol = numericalCols[0];
-    const catIndex = headers.indexOf(catCol.name);
-    const numIndex = headers.indexOf(numCol.name);
-    
-    // Aggregate numerical values by category
-    const aggregated: { [key: string]: number[] } = {};
-    dataRows.forEach(row => {
-      const category = row[catIndex];
-      const value = parseFloat(row[numIndex]);
-      if (!isNaN(value)) {
-        if (!aggregated[category]) aggregated[category] = [];
-        aggregated[category].push(value);
-      }
-    });
-    
-    charts.push({
-      id: 'category-analysis',
-      type: 'bar',
-      title: `Average ${numCol.name} by ${catCol.name}`,
-      description: `Compare average ${numCol.name} across different ${catCol.name}`,
-      data: Object.entries(aggregated).map(([name, values]) => ({
-        name,
-        value: values.reduce((a, b) => a + b, 0) / values.length
-      })),
-      config: { xKey: 'name', yKey: 'value' }
-    });
-  }
-  
-  // 4. Numerical distribution histogram (as line chart)
-  if (numericalCols.length > 0) {
-    const numCol = numericalCols[0];
-    const numIndex = headers.indexOf(numCol.name);
-    
-    const values = dataRows.map(row => parseFloat(row[numIndex])).filter(v => !isNaN(v));
-    
-    // Create bins for histogram
+    // Histogram data (binning)
     const min = Math.min(...values);
     const max = Math.max(...values);
-    const binCount = 8;
+    const binCount = 10;
     const binSize = (max - min) / binCount;
     
-    const bins = Array.from({length: binCount}, (_, i) => {
+    const histogramData = Array.from({length: binCount}, (_, i) => {
       const binStart = min + i * binSize;
       const binEnd = binStart + binSize;
       const count = values.filter(v => v >= binStart && v < binEnd).length;
       return {
         name: `${binStart.toFixed(1)}-${binEnd.toFixed(1)}`,
-        value: count
+        value: count,
+        bin: i
       };
     });
     
     charts.push({
-      id: 'numerical-distribution',
-      type: 'line',
-      title: `Distribution of ${numCol.name}`,
-      description: `Histogram showing the distribution of ${numCol.name} values`,
-      data: bins,
-      config: { xKey: 'name', yKey: 'value' }
+      id: `histogram-${numCol.name}`,
+      type: 'bar',
+      title: `Histogram of ${numCol.name}`,
+      description: `Distribution of ${numCol.name} values`,
+      data: histogramData,
+      config: { xKey: 'name', yKey: 'value' },
+      category: 'univariate'
+    });
+    
+    // Boxplot data (quartiles representation)
+    const sortedValues = [...values].sort((a, b) => a - b);
+    const q1 = sortedValues[Math.floor(sortedValues.length * 0.25)];
+    const median = sortedValues[Math.floor(sortedValues.length * 0.5)];
+    const q3 = sortedValues[Math.floor(sortedValues.length * 0.75)];
+    
+    charts.push({
+      id: `boxplot-${numCol.name}`,
+      type: 'boxplot',
+      title: `Box Plot of ${numCol.name}`,
+      description: `Quartile analysis of ${numCol.name}`,
+      data: [{
+        name: numCol.name,
+        min: min,
+        q1: q1,
+        median: median,
+        q3: q3,
+        max: max,
+        outliers: values.filter(v => v < q1 - 1.5 * (q3 - q1) || v > q3 + 1.5 * (q3 - q1))
+      }],
+      config: { dataKey: 'name' },
+      category: 'univariate'
+    });
+  });
+  
+  // 2. CORRELATION HEATMAP
+  if (numericalCols.length > 1) {
+    const correlationMatrix: any[] = [];
+    
+    numericalCols.forEach((col1, i) => {
+      numericalCols.forEach((col2, j) => {
+        const col1Index = headers.indexOf(col1.name);
+        const col2Index = headers.indexOf(col2.name);
+        
+        const values1 = dataRows.map(row => parseFloat(row[col1Index])).filter(v => !isNaN(v));
+        const values2 = dataRows.map(row => parseFloat(row[col2Index])).filter(v => !isNaN(v));
+        
+        // Calculate correlation coefficient
+        const n = Math.min(values1.length, values2.length);
+        if (n > 1) {
+          const mean1 = values1.reduce((a, b) => a + b, 0) / values1.length;
+          const mean2 = values2.reduce((a, b) => a + b, 0) / values2.length;
+          
+          const numerator = values1.slice(0, n).reduce((sum, v1, idx) => 
+            sum + (v1 - mean1) * (values2[idx] - mean2), 0);
+          const denom1 = Math.sqrt(values1.slice(0, n).reduce((sum, v) => sum + Math.pow(v - mean1, 2), 0));
+          const denom2 = Math.sqrt(values2.slice(0, n).reduce((sum, v) => sum + Math.pow(v - mean2, 2), 0));
+          
+          const correlation = denom1 * denom2 !== 0 ? numerator / (denom1 * denom2) : 0;
+          
+          correlationMatrix.push({
+            x: col1.name,
+            y: col2.name,
+            value: Math.round(correlation * 100) / 100,
+            color: correlation
+          });
+        }
+      });
+    });
+    
+    charts.push({
+      id: 'correlation-heatmap',
+      type: 'heatmap',
+      title: 'Correlation Heatmap',
+      description: 'Correlation matrix of numerical variables',
+      data: correlationMatrix,
+      config: { xKey: 'x', yKey: 'y', valueKey: 'value' },
+      category: 'correlation'
     });
   }
   
+  // 3. BIVARIATE: CATEGORICAL vs NUMERICAL
+  categoricalCols.forEach(catCol => {
+    numericalCols.forEach(numCol => {
+      const catIndex = headers.indexOf(catCol.name);
+      const numIndex = headers.indexOf(numCol.name);
+      
+      // Group numerical values by category
+      const grouped: { [key: string]: number[] } = {};
+      dataRows.forEach(row => {
+        const category = row[catIndex];
+        const value = parseFloat(row[numIndex]);
+        if (!isNaN(value) && category) {
+          if (!grouped[category]) grouped[category] = [];
+          grouped[category].push(value);
+        }
+      });
+      
+      // Mean values by category (Bar chart)
+      const meanData = Object.entries(grouped).map(([category, values]) => ({
+        name: category,
+        value: values.reduce((sum, v) => sum + v, 0) / values.length,
+        count: values.length
+      }));
+      
+      if (meanData.length > 0) {
+        charts.push({
+          id: `bar-${catCol.name}-${numCol.name}`,
+          type: 'bar',
+          title: `Mean ${numCol.name} by ${catCol.name}`,
+          description: `Average ${numCol.name} across different ${catCol.name} categories`,
+          data: meanData,
+          config: { xKey: 'name', yKey: 'value' },
+          category: 'bivariate'
+        });
+      }
+      
+      // Box plot data by category
+      const boxplotData = Object.entries(grouped).map(([category, values]) => {
+        const sorted = [...values].sort((a, b) => a - b);
+        const q1 = sorted[Math.floor(sorted.length * 0.25)];
+        const median = sorted[Math.floor(sorted.length * 0.5)];
+        const q3 = sorted[Math.floor(sorted.length * 0.75)];
+        
+        return {
+          name: category,
+          min: Math.min(...values),
+          q1: q1,
+          median: median,
+          q3: q3,
+          max: Math.max(...values)
+        };
+      });
+      
+      if (boxplotData.length > 0) {
+        charts.push({
+          id: `boxplot-${catCol.name}-${numCol.name}`,
+          type: 'boxplot',
+          title: `Box Plot: ${numCol.name} by ${catCol.name}`,
+          description: `Distribution of ${numCol.name} across ${catCol.name} categories`,
+          data: boxplotData,
+          config: { xKey: 'name', yKey: 'median' },
+          category: 'bivariate'
+        });
+      }
+    });
+  });
+  
+  // 4. BIVARIATE: NUMERICAL vs NUMERICAL
+  for (let i = 0; i < numericalCols.length; i++) {
+    for (let j = i + 1; j < numericalCols.length; j++) {
+      const col1 = numericalCols[i];
+      const col2 = numericalCols[j];
+      const col1Index = headers.indexOf(col1.name);
+      const col2Index = headers.indexOf(col2.name);
+      
+      const scatterData = dataRows.map((row, idx) => {
+        const x = parseFloat(row[col1Index]);
+        const y = parseFloat(row[col2Index]);
+        return !isNaN(x) && !isNaN(y) ? { x, y, name: `Point ${idx}` } : null;
+      }).filter(Boolean).slice(0, 50); // Limit for performance
+      
+      if (scatterData.length > 5) {
+        charts.push({
+          id: `scatter-${col1.name}-${col2.name}`,
+          type: 'scatter',
+          title: `${col1.name} vs ${col2.name}`,
+          description: `Relationship between ${col1.name} and ${col2.name}`,
+          data: scatterData,
+          config: { xKey: 'x', yKey: 'y' },
+          category: 'correlation'
+        });
+      }
+    });
+  }
+  
+  // 5. CATEGORICAL DISTRIBUTIONS
+  categoricalCols.forEach(catCol => {
+    const catIndex = headers.indexOf(catCol.name);
+    const counts: { [key: string]: number } = {};
+    
+    dataRows.forEach(row => {
+      const value = row[catIndex];
+      if (value) {
+        counts[value] = (counts[value] || 0) + 1;
+      }
+    });
+    
+    const pieData = Object.entries(counts).map(([name, value]) => ({ name, value }));
+    
+    if (pieData.length > 1 && pieData.length <= 15) { // Reasonable number of categories
+      charts.push({
+        id: `pie-${catCol.name}`,
+        type: 'pie',
+        title: `Distribution of ${catCol.name}`,
+        description: `Breakdown of ${catCol.name} categories`,
+        data: pieData,
+        config: { dataKey: 'value' },
+        category: 'categorical'
+      });
+    }
+  });
+  
+  // 6. TIME SERIES (if date columns exist)
+  dateCols.forEach(dateCol => {
+    numericalCols.forEach(numCol => {
+      const dateIndex = headers.indexOf(dateCol.name);
+      const numIndex = headers.indexOf(numCol.name);
+      
+      const timeSeriesData = dataRows.map((row, idx) => {
+        const dateValue = new Date(row[dateIndex]);
+        const numValue = parseFloat(row[numIndex]);
+        return !isNaN(dateValue.getTime()) && !isNaN(numValue) ? {
+          date: dateValue.toISOString().split('T')[0],
+          value: numValue,
+          name: `${dateValue.toLocaleDateString()}`
+        } : null;
+      }).filter(Boolean).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      
+      if (timeSeriesData.length > 2) {
+        charts.push({
+          id: `timeseries-${dateCol.name}-${numCol.name}`,
+          type: 'line',
+          title: `Time Series: ${numCol.name} over ${dateCol.name}`,
+          description: `Trend of ${numCol.name} over time`,
+          data: timeSeriesData,
+          config: { xKey: 'name', yKey: 'value' },
+          category: 'timeseries'
+        });
+      }
+    });
+  });
+  
+  // 7. CATEGORICAL CORRELATION HEATMAP
+  if (categoricalCols.length > 1) {
+    const catCorrelationMatrix: any[] = [];
+    
+    // Encode categorical variables as numbers for correlation
+    const encodedData: { [key: string]: number[] } = {};
+    categoricalCols.forEach(col => {
+      const colIndex = headers.indexOf(col.name);
+      const uniqueValues = [...new Set(dataRows.map(row => row[colIndex]).filter(v => v))];
+      const valueMap = Object.fromEntries(uniqueValues.map((val, idx) => [val, idx]));
+      
+      encodedData[col.name] = dataRows.map(row => valueMap[row[colIndex]] || 0);
+    });
+    
+    categoricalCols.forEach((col1, i) => {
+      categoricalCols.forEach((col2, j) => {
+        const values1 = encodedData[col1.name];
+        const values2 = encodedData[col2.name];
+        
+        // Calculate correlation
+        const n = Math.min(values1.length, values2.length);
+        const mean1 = values1.reduce((a, b) => a + b, 0) / values1.length;
+        const mean2 = values2.reduce((a, b) => a + b, 0) / values2.length;
+        
+        const numerator = values1.slice(0, n).reduce((sum, v1, idx) => 
+          sum + (v1 - mean1) * (values2[idx] - mean2), 0);
+        const denom1 = Math.sqrt(values1.slice(0, n).reduce((sum, v) => sum + Math.pow(v - mean1, 2), 0));
+        const denom2 = Math.sqrt(values2.slice(0, n).reduce((sum, v) => sum + Math.pow(v - mean2, 2), 0));
+        
+        const correlation = denom1 * denom2 !== 0 ? numerator / (denom1 * denom2) : 0;
+        
+        catCorrelationMatrix.push({
+          x: col1.name,
+          y: col2.name,
+          value: Math.round(correlation * 100) / 100,
+          color: correlation
+        });
+      });
+    });
+    
+    charts.push({
+      id: 'categorical-correlation-heatmap',
+      type: 'heatmap',
+      title: 'Categorical Variables Correlation',
+      description: 'Correlation matrix of categorical variables (encoded)',
+      data: catCorrelationMatrix,
+      config: { xKey: 'x', yKey: 'y', valueKey: 'value' },
+      category: 'categorical'
+    });
+  }
+  
+  console.log(`Generated ${charts.length} charts total`);
   return charts;
 }
 
@@ -226,54 +421,70 @@ serve(async (req) => {
   try {
     const { csvData, fileName } = await req.json();
     
-    console.log('Processing dashboard request for:', fileName);
+    console.log('Processing comprehensive dashboard for:', fileName);
     
     if (!csvData) {
       throw new Error('No CSV data provided');
     }
     
-    // Analyze CSV structure
-    const columnAnalysis = analyzeCSV(csvData);
-    console.log('Column analysis:', columnAnalysis);
+    // Analyze CSV structure with configurable categorical threshold
+    const columnAnalysis = analyzeCSV(csvData, 20); // max 20 unique values for categorical
+    console.log('Column analysis:', columnAnalysis.map(c => `${c.name}: ${c.type}`));
     
-    // Generate chart configurations
-    const charts = generateChartData(csvData, columnAnalysis);
+    // Generate ALL chart types like the Python code
+    const charts = generateAllCharts(csvData, columnAnalysis);
+    console.log(`Generated ${charts.length} total charts`);
     
-    // Generate AI insights using Gemini
-    const analysisPrompt = `Analyze this dataset and provide comprehensive business insights:
+    // Generate AI insights using Gemini (insights only, not charts)
+    const analysisPrompt = `Analyze this comprehensive dataset and provide business insights:
 
 Dataset: ${fileName}
+Total Charts Generated: ${charts.length}
 Columns: ${columnAnalysis.map(col => `${col.name} (${col.type}, ${col.uniqueCount} unique values)`).join(', ')}
 
-Sample data structure:
-${csvData.split('\n').slice(0, 6).join('\n')}
+Column Details:
+${columnAnalysis.map(col => {
+  let details = `- ${col.name}: ${col.type} type, ${col.uniqueCount} unique values`;
+  if (col.stats && col.type === 'numerical') {
+    details += `, range: ${col.stats.min?.toFixed(2)} to ${col.stats.max?.toFixed(2)}, avg: ${col.stats.mean?.toFixed(2)}`;
+  }
+  return details;
+}).join('\n')}
 
-Column Analysis:
-${columnAnalysis.map(col => `- ${col.name}: ${col.type} type, ${col.uniqueCount} unique values${col.stats ? `, avg: ${col.stats.mean?.toFixed(2)}` : ''}`).join('\n')}
+Chart Types Generated:
+- Univariate Analysis: ${charts.filter(c => c.category === 'univariate').length} charts
+- Correlation Analysis: ${charts.filter(c => c.category === 'correlation').length} charts  
+- Bivariate Analysis: ${charts.filter(c => c.category === 'bivariate').length} charts
+- Categorical Analysis: ${charts.filter(c => c.category === 'categorical').length} charts
+- Time Series Analysis: ${charts.filter(c => c.category === 'timeseries').length} charts
 
-Provide comprehensive business insights in this JSON format:
+Sample data:
+${csvData.split('\n').slice(0, 4).join('\n')}
+
+Provide comprehensive business insights in JSON format:
 {
-  "insights": [
-    "Key insight about data patterns and trends",
-    "Business intelligence observation", 
-    "Data quality assessment",
-    "Actionable recommendation",
-    "Strategic business implication"
+  "keyInsights": [
+    "Most important business pattern or trend",
+    "Critical correlation or relationship found", 
+    "Significant categorical distribution insight",
+    "Data quality or outlier observation",
+    "Strategic business recommendation"
   ],
-  "dataQuality": [
-    "Data completeness assessment",
-    "Data consistency observation",
-    "Potential data issues identified"
-  ],
-  "businessValue": "Overall summary of business value and potential use cases for this dataset",
-  "keyFindings": [
-    "Most significant pattern or correlation",
-    "Notable outliers or anomalies",
-    "Trend analysis summary"
+  "dataQuality": {
+    "score": 85,
+    "strengths": ["aspect1", "aspect2"],
+    "concerns": ["issue1", "issue2"],
+    "recommendations": ["action1", "action2"]
+  },
+  "businessValue": "Overall strategic value and use cases for this dataset",
+  "actionableInsights": [
+    "Specific action item 1",
+    "Specific action item 2", 
+    "Specific action item 3"
   ]
 }`;
 
-    console.log('Sending request to Gemini for insights...');
+    console.log('Requesting AI insights from Gemini...');
     
     const geminiResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', {
       method: 'POST',
@@ -296,10 +507,10 @@ Provide comprehensive business insights in this JSON format:
 
     const geminiData = await geminiResponse.json();
     let aiInsights = { 
-      insights: [], 
-      dataQuality: [], 
+      keyInsights: [], 
+      dataQuality: { score: 80, strengths: [], concerns: [], recommendations: [] },
       businessValue: '',
-      keyFindings: []
+      actionableInsights: []
     };
     
     if (geminiData.candidates?.[0]?.content?.parts?.[0]?.text) {
@@ -310,32 +521,33 @@ Provide comprehensive business insights in this JSON format:
           .trim();
         aiInsights = JSON.parse(cleanedResponse);
       } catch (e) {
-        console.error('Failed to parse Gemini response:', e);
-        // Fallback insights
+        console.error('Failed to parse Gemini response, using fallback insights');
         aiInsights = {
-          insights: [
-            `Dataset contains ${columnAnalysis.length} columns with ${csvData.split('\n').length - 1} rows`,
-            `Found ${columnAnalysis.filter(c => c.type === 'numerical').length} numerical and ${columnAnalysis.filter(c => c.type === 'categorical').length} categorical columns`,
-            'This data shows potential for comprehensive business analysis and decision-making',
-            `Data completeness varies across columns with some requiring attention`,
-            'Multiple visualization types are recommended based on data structure'
+          keyInsights: [
+            `Comprehensive analysis of ${columnAnalysis.length} columns with ${csvData.split('\n').length - 1} records`,
+            `Generated ${charts.length} visualizations covering univariate, bivariate, and correlation analysis`,
+            `Found ${columnAnalysis.filter(c => c.type === 'numerical').length} numerical and ${columnAnalysis.filter(c => c.type === 'categorical').length} categorical variables`,
+            'Multiple chart types provide complete data exploration coverage',
+            'Dataset suitable for advanced analytics and business intelligence'
           ],
-          dataQuality: [
-            'Dataset appears well-structured with clear column definitions',
-            'Some null values detected - consider data cleaning procedures',
-            'Column types are properly detected and categorized'
-          ],
-          businessValue: 'This dataset provides valuable opportunities for data-driven insights, trend analysis, and strategic business planning across multiple dimensions.',
-          keyFindings: [
-            'Strong correlation potential between numerical variables',
-            'Categorical data shows clear distribution patterns',
-            'Data suitable for predictive modeling and business intelligence'
+          dataQuality: {
+            score: 85,
+            strengths: ['Well-structured columns', 'Multiple data types', 'Comprehensive coverage'],
+            concerns: ['Check for missing values', 'Validate data consistency'],
+            recommendations: ['Perform data cleaning', 'Consider additional features']
+          },
+          businessValue: 'This dataset provides comprehensive insights across multiple dimensions, suitable for strategic decision-making and predictive analytics.',
+          actionableInsights: [
+            'Focus on key correlations identified in heatmaps',
+            'Investigate outliers shown in box plots',
+            'Leverage categorical distributions for segmentation',
+            'Monitor trends in time series analysis'
           ]
         };
       }
     }
     
-    // Generate key metrics
+    // Generate comprehensive key metrics
     const totalRows = csvData.split('\n').length - 1;
     const keyMetrics = [
       {
@@ -349,6 +561,11 @@ Provide comprehensive business insights in this JSON format:
         trend: 'stable' as const
       },
       {
+        label: 'Charts Generated', 
+        value: charts.length,
+        trend: 'up' as const
+      },
+      {
         label: 'Numerical Fields',
         value: columnAnalysis.filter(c => c.type === 'numerical').length,
         trend: 'up' as const
@@ -359,31 +576,42 @@ Provide comprehensive business insights in this JSON format:
         trend: 'up' as const
       },
       {
-        label: 'Data Quality',
-        value: `${Math.round(((totalRows - columnAnalysis.reduce((sum, col) => sum + (col.stats?.nullCount || 0), 0) / columnAnalysis.length) / totalRows) * 100)}%`,
-        trend: 'up' as const
-      },
-      {
-        label: 'Chart Types',
-        value: charts.length,
+        label: 'Data Quality Score',
+        value: `${aiInsights.dataQuality.score}%`,
         trend: 'up' as const
       }
     ];
     
-    const dashboardConfig: DashboardConfig = {
-      title: `Smart Dashboard: ${fileName}`,
-      insights: [...aiInsights.insights, ...aiInsights.dataQuality, ...aiInsights.keyFindings],
+    // Combine all insights
+    const allInsights = [
+      ...aiInsights.keyInsights,
+      ...aiInsights.actionableInsights,
+      ...aiInsights.dataQuality.strengths.map(s => `Data Strength: ${s}`),
+      ...aiInsights.dataQuality.recommendations.map(r => `Recommendation: ${r}`)
+    ];
+    
+    const dashboardConfig = {
+      title: `Comprehensive Dashboard: ${fileName}`,
+      insights: allInsights,
       charts,
-      keyMetrics
+      keyMetrics,
+      dataQuality: aiInsights.dataQuality,
+      businessValue: aiInsights.businessValue
     };
     
-    console.log('Generated dashboard config with', charts.length, 'charts');
+    console.log(`Dashboard generated successfully with ${charts.length} charts and ${allInsights.length} insights`);
     
     return new Response(JSON.stringify({
       success: true,
       dashboard: dashboardConfig,
       columnAnalysis,
-      businessValue: aiInsights.businessValue
+      chartCategories: {
+        univariate: charts.filter(c => c.category === 'univariate').length,
+        bivariate: charts.filter(c => c.category === 'bivariate').length,
+        correlation: charts.filter(c => c.category === 'correlation').length,
+        categorical: charts.filter(c => c.category === 'categorical').length,
+        timeseries: charts.filter(c => c.category === 'timeseries').length
+      }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
